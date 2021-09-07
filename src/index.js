@@ -21,7 +21,7 @@ function logDataStream(data){
 
 function TLV(buf) {
   this.type = buf.slice(0, 2);
-  this.len = parseInt(buf.slice(2, 4).toString('hex'), 16);
+  this.len = buf.slice(2, 4).readInt16BE(0)
   this.payload = buf.slice(4, 4 + this.len);
   this.toString = () => `TLV(${this.type.toString('hex')}, ${this.len}, ${this.payload.toString('ascii')})`;
 }
@@ -30,7 +30,7 @@ function SNAC(buf) {
   this.family = buf.slice(0,2).readInt16BE(0);
   this.service = buf.slice(2,4).readInt16BE(0);
   this.flags = buf.slice(4, 6);
-  this.requestID = parseInt(buf.slice(6, 10).toString('hex'), 16);
+  this.requestID = buf.slice(6, 10).readInt32BE(0);
   this.payload = new TLV(buf.slice(10));
   this.toString = () => `SNAC(${this.family.toString(16)},${this.service.toString(16)}) #${this.requestID}\n  ${this.payload}`;
 }
@@ -38,8 +38,8 @@ function SNAC(buf) {
 function FLAP(buf) {
   assert.equal(buf[0], 0x2a, 'Expected 0x2a FLAP header');
   this.channel = buf[1];
-  this.datagramNumber = parseInt(buf.slice(2,4).toString('hex'), 16);
-  this.payloadLength = parseInt(buf.slice(4, 6).toString('hex'), 16);
+  this.datagramNumber = buf.slice(2,4).readInt16BE(0);
+  this.payloadLength = buf.slice(4, 6).readInt16BE(0);
   this.payload = buf.slice(6, 6 + this.payloadLength);
   this.toString = () => `ch:${this.channel}, dn: ${this.datagramNumber}, len: ${this.payloadLength}, payload:\n  ${ this.payload instanceof SNAC ? this.payload.toString() : logDataStream(this.payload).split('\n').join('\n  ')}`;
 
@@ -128,6 +128,6 @@ server.on('error', (err) => {
   throw err;
 });
 
-server.listen(5190, '10.0.1.29', () => {
-  console.log('OSCAR ready on 10.0.1.29:5190');
+server.listen(5190, () => {
+  console.log('OSCAR ready on :5190');
 });
