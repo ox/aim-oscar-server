@@ -44,9 +44,7 @@ const server = net.createServer((socket) => {
     00 00 00 01
   */
 
-  /* 3. server ACK */
-
-  /* 4. client sends username
+  /* 3. client sends username
     2a            FLAP
     02            channel 2 (SNAC)
     51 12         datagram 12
@@ -60,20 +58,19 @@ const server = net.createServer((socket) => {
     74 6f 6f 66   toof
   */
 
-    /* 5. server responds
-      2a          FLAP
-      02          Channel 2 (SNAC)
-      00 02       datagram 2
-      00 16       22 bytes
-      00 17       Service (Authorization/registration service)
-      00 07       Server md5 authkey response
-                  This snac contain server generated auth key. Client should use it to crypt password.
-      00 00       Flags
-      00 00 00 00 SNAC request ID
-      00 0a       Length (10 bytes)
-
-
-    */
+  /* 4. server responds
+    2a          FLAP
+    02          Channel 2 (SNAC)
+    00 02       datagram 2
+    00 16       22 bytes
+    00 17       Service (Authorization/registration service)
+    00 07       Server md5 authkey response
+                This snac contain server generated auth key. Client should use it to crypt password.
+    00 00       Flags
+    00 00 00 00 SNAC request ID
+    00 0a       Length (10 bytes)
+    ...
+  */
 
 
 });
