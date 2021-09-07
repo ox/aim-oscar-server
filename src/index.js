@@ -1,5 +1,6 @@
 const net = require('net');
 const { logDataStream } = require('./util');
+const { FLAP } = require('./structures');
 
 const server = net.createServer((socket) => {
   console.log('client connected...');
@@ -11,7 +12,6 @@ const server = net.createServer((socket) => {
 
   socket.on('data', (data) => {
     const flap = FLAP.fromBuffer(Buffer.from(data, 'hex'));
-    console.log(logDataStream(flap.toBuffer()));
     console.log('RECV', flap.toString());
   });
 
@@ -24,10 +24,7 @@ const server = net.createServer((socket) => {
     console.log('client disconnected...');
   });
 
-  // const hello = Buffer.from(new Uint8Array([0x2a, 0x01, 0, 0x01, 0, 0x04, 0x00, 0x00, 0x00, 0x01]));
-
   const hello = new FLAP(0x01, 0, Buffer.from([0x00, 0x00, 0x00, 0x01]));
-  // console.log(logDataStream(hello.toBuffer()));
   socket.write(hello.toBuffer());
 
   /* 1. on connection, server sends
