@@ -72,12 +72,15 @@ class Communicator {
 
         switch (tlv.type) {
           case 0x06: // Requesting available services
-            const resp = new FLAP(2, this._getNewSequenceNumber(), new SNAC(0x01, 0x03, FLAGS_EMPTY, 0, [
-              Buffer.from([0x00, 0x01, 0x00, 0x02, 0x00, 0x03, 0x00, 0x04,
-                           0x00, 0x06, 0x00, 0x08, 0x00, 0x09, 0x00, 0x0A,
-                           0x00, 0x0B, 0x00, 0x0C, 0x00, 0x13, 0x00, 0x15,
-                          ]), // Buddy List management service
-            ]));
+            // this is just a dword list of service families
+            const servicesOffered = [];
+            Object.values(this.services).forEach((service) => {
+              servicesOffered.push(Buffer.from([0x00, service.family]));
+            });
+            const resp = new FLAP(2, this._getNewSequenceNumber(),
+              new SNAC(0x01, 0x03, FLAGS_EMPTY, 0, [
+                Buffer.concat(servicesOffered),
+              ]));
             this.send(resp);
             return;
         }
