@@ -11,9 +11,9 @@ class Communicator {
 
     this.socket.on('data', (data) => {
       console.log('DATA-----------------------');
-      console.log('RECV', logDataStream(Buffer.from(data, 'hex')));
       const flap = FLAP.fromBuffer(Buffer.from(data, 'hex'));
       console.log('RECV', flap.toString());
+      console.log('RAW\n' + logDataStream(Buffer.from(data, 'hex')));
       this.handleMessage(flap);
     });
 
@@ -47,7 +47,7 @@ class Communicator {
 
   send(message) {
     console.log('SEND', message.toString());
-    console.log('SEND', logDataStream(message.toBuffer()));
+    console.log('RAW\n' + logDataStream(message.toBuffer()));
     console.log('-----------------------DATA');
     this.socket.write(message.toBuffer());
   }
