@@ -31,6 +31,7 @@ class TLV {
 
 class SNAC {
   static fromBuffer(buf, payloadLength = 0) {
+    assert(buf.length >= 10, 'Expected 10 bytes for SNAC header');
     const family = buf.slice(0,2).readInt16BE(0);
     const service = buf.slice(2,4).readInt16BE(0);
     const flags = buf.slice(4, 6);
@@ -85,7 +86,8 @@ class SNAC {
 
 class FLAP {
   static fromBuffer(buf) {
-    assert.equal(buf[0], 0x2a, 'Expected 0x2a FLAP header');
+    assert.equal(buf[0], 0x2a, 'Expected 0x2a at start of FLAP header');
+    assert(buf.length >= 6, 'Expected at least 6 bytes for FLAP header');
     const channel = buf.readInt8(1);
     const sequenceNumber = buf.slice(2,4).readInt16BE(0);
     const payloadLength = buf.slice(4, 6).readInt16BE(0);
