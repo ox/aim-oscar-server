@@ -1,26 +1,29 @@
-const { FLAP, SNAC, TLV } = require('./structures');
-const { logDataStream } = require('./util');
-const { FLAGS_EMPTY } = require('./consts');
+import net from "net";
+import { FLAP, SNAC, TLV } from './structures';
+import { logDataStream } from './util';
+import { FLAGS_EMPTY } from './consts';
 
-const AuthorizationRegistrationService = require("./services/authorization-registration");
+import AuthorizationRegistrationService from "./services/authorization-registration";
+import BaseService from "./services/base";
 
-class Communicator {
-  constructor(socket) {
+export default class Communicator {
+
+  private _sequenceNumber = 0;
+  private services : {[key: number]: BaseService} = {};
+
+  constructor(public socket : net.Socket) {
     // Hold on to the socket
     this.socket = socket;
 
-    this.socket.on('data', (data) => {
+    this.socket.on('data', (data : Buffer) => {
       console.log('DATA-----------------------');
-      const flap = FLAP.fromBuffer(Buffer.from(data, 'hex'));
+      const flap = FLAP.fromBuffer(data);
       console.log('RECV', flap.toString());
-      console.log('RAW\n' + logDataStream(Buffer.from(data, 'hex')));
+      console.log('RAW\n' + logDataStream(data));
       this.handleMessage(flap);
     });
 
-    this._sequenceNumber = 0;
-
     this.registerServices();
-
     this.start();
   }
 
@@ -45,16 +48,21 @@ class Communicator {
     return ++this._sequenceNumber;
   }
 
-  send(message) {
+  send(message : FLAP) {
     console.log('SEND', message.toString());
     console.log('RAW\n' + logDataStream(message.toBuffer()));
     console.log('-----------------------DATA');
     this.socket.write(message.toBuffer());
   }
 
-  handleMessage(message) {
+  handleMessage(message : FLAP) {
     switch (message.channel) {
       case 1:
+        // No SNACs on channel 1
+        if (!(message.payload instanceof Buffer)) {
+          return;
+        }
+
         const protocol = message.payload.readUInt32BE();
         
         if (protocol !== 1) {
@@ -73,7 +81,7 @@ class Communicator {
         switch (tlv.type) {
           case 0x06: // Requesting available services
             // this is just a dword list of service families
-            const servicesOffered = [];
+            const servicesOffered : Buffer[] = [];
             Object.values(this.services).forEach((service) => {
               servicesOffered.push(Buffer.from([0x00, service.family]));
             });
@@ -87,8 +95,8 @@ class Communicator {
 
         return;
       case 2:
-        if (!message.payload) {
-          console.error('No SNAC');
+        if (!(message.payload instanceof SNAC)) {
+          console.error('Expected SNAC payload');
           return;
         }
 
@@ -105,5 +113,3 @@ class Communicator {
     }
   }
 }
-
-module.exports = Communicator;

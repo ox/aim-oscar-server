@@ -1,11 +1,22 @@
-class BaseService {
-  constructor({family, version}, communicator) {
+import Communicator from "../communicator";
+import { FLAP } from "../structures";
+
+interface ServiceFamilyVersion {
+  family : number,
+  version : number,
+}
+
+export default class BaseService {
+  public family : number;
+  public version : number;
+
+  constructor({family, version} : ServiceFamilyVersion, public communicator : Communicator) {
     this.family = family;
     this.version = version;
     this.communicator = communicator;
   }
 
-  send(message) {
+  send(message : FLAP) {
     this.communicator.send(message);
   }
 
@@ -13,9 +24,7 @@ class BaseService {
     return this.communicator._getNewSequenceNumber();
   }
 
-  handleMessage(message) {
-    return null;
+  handleMessage(message : FLAP) : void {
+    return;
   }
 }
-
-module.exports = BaseService;

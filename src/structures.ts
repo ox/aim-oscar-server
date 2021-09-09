@@ -1,9 +1,9 @@
-const assert = require('assert');
+import assert from 'assert';
 
-const { logDataStream } = require('./util');
+import { logDataStream } from './util';
 
-class TLV {
-  static fromBuffer(buf) {
+export class TLV {
+  static fromBuffer(buf : Buffer) {
     const type = buf.slice(0, 2).readInt16BE(0);
     const len = buf.slice(2, 4).readInt16BE(0)
     const payload = buf.slice(4, 4 + len);
@@ -11,7 +11,9 @@ class TLV {
     return new TLV(type, payload);
   }
 
-  constructor(type, payload) {
+  public len : number;
+
+  constructor(public type : number, public payload : Buffer) {
     this.type = type;
     this.len = payload.length;
     this.payload = payload;
@@ -29,14 +31,14 @@ class TLV {
   }
 }
 
-class SNAC {
-  static fromBuffer(buf, payloadLength = 0) {
+export class SNAC {
+  static fromBuffer(buf : Buffer, payloadLength = 0) {
     assert(buf.length >= 10, 'Expected 10 bytes for SNAC header');
     const family = buf.slice(0,2).readInt16BE(0);
     const service = buf.slice(2,4).readInt16BE(0);
     const flags = buf.slice(4, 6);
     const requestID = buf.slice(6, 10).readInt32BE(0);
-    const tlvs = []; // SNACs can have multiple TLVs
+    const tlvs : TLV[] = []; // SNACs can have multiple TLVs
 
     let tlvsIdx = 10;
     let cb = 0, cbLimit = 20; //circuit breaker
@@ -54,7 +56,7 @@ class SNAC {
     return new SNAC(family, service, flags, requestID, tlvs);
   }
 
-  constructor(family, service, flags, requestID, tlvs = []) {
+  constructor(public family : number, public service : number, public flags : Buffer, public requestID : number , public tlvs : Array<TLV | Buffer> = []) {
     this.family = family;
     this.service = service;
     this.flags = flags;
@@ -70,7 +72,7 @@ class SNAC {
     const SNACHeader = Buffer.alloc(10, 0, 'hex');
     SNACHeader.writeUInt16BE(this.family);
     SNACHeader.writeUInt16BE(this.service, 2);
-    SNACHeader.writeUInt16BE(this.flags, 4);
+    SNACHeader.set(this.flags, 4);
     SNACHeader.writeUInt32BE(this.requestID, 6);
 
     const payload = this.tlvs.map((thing) => {
@@ -84,14 +86,14 @@ class SNAC {
   }
 }
 
-class FLAP {
-  static fromBuffer(buf) {
+export class FLAP {
+  static fromBuffer(buf : Buffer) {
     assert.equal(buf[0], 0x2a, 'Expected 0x2a at start of FLAP header');
     assert(buf.length >= 6, 'Expected at least 6 bytes for FLAP header');
     const channel = buf.readInt8(1);
     const sequenceNumber = buf.slice(2,4).readInt16BE(0);
     const payloadLength = buf.slice(4, 6).readInt16BE(0);
-    let payload = buf.slice(6, 6 + payloadLength);
+    let payload : Buffer | SNAC = buf.slice(6, 6 + payloadLength);
 
     if (channel === 2) {
       payload = SNAC.fromBuffer(payload, payloadLength);
@@ -100,21 +102,26 @@ class FLAP {
     return new FLAP(channel, sequenceNumber, payload)
   }
 
-  constructor(channel, sequenceNumber, payload) {
+  payloadLength: number;
+
+  constructor(public channel: number, public sequenceNumber: number, public payload: Buffer | SNAC) {
     this.channel = channel;
     this.sequenceNumber = sequenceNumber;
 
     this.payload = payload;
-    this.payloadLength = this.payload.length;
 
     if (payload instanceof SNAC) {
       this.payloadLength = payload.toBuffer().length;
+    } else {
+      this.payloadLength = payload.length;
     }
   }
 
   toString() {
-    const hasSnac = this.payload instanceof SNAC;
-    const payload = hasSnac ? this.payload.toString() : logDataStream(this.payload).split('\n').join('\n  ');
+    let payload = this.payload.toString();
+    if (this.payload instanceof Buffer) {
+      payload = logDataStream(this.payload).split('\n').join('\n  ');
+    }
     return `ch:${this.channel}, dn: ${this.sequenceNumber}, len: ${this.payloadLength}, payload:\n  ${payload}`
   }
 

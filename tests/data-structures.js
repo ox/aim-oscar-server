@@ -1,4 +1,4 @@
-const assert = require('assert');
+import assert from 'assert';
 
 const { FLAP, SNAC, TLV } = require('../src/structures');
 

@@ -1,7 +1,5 @@
-const net = require('net');
-const Communicator = require('./communicator');
-
-const communicators = {};
+import net from 'net';
+import Communicator from './communicator';
 
 const server = net.createServer((socket) => {
   console.log('client connected...');
@@ -9,21 +7,19 @@ const server = net.createServer((socket) => {
 
   socket.on('error', (e) => {
     console.error('socket encountered an error:', e);
-    delete communicators[socket];
+    socket.end();
   });
 
   socket.on('timeout', () => {
     console.log('socket timeout');
     socket.end();
-    delete communicators[socket];
   });
 
   socket.on('end', () => {
     console.log('client disconnected...');
   });
 
-  const c = new Communicator(socket);
-  communicators[socket] = c;
+  new Communicator(socket);
 });
 
 server.on('error', (err) => {

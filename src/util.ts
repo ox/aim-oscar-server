@@ -1,4 +1,4 @@
-function chunkString(str, len) {
+function chunkString(str : string, len : number) {
   const size = Math.ceil(str.length/len)
   const r = Array(size)
   let offset = 0
@@ -11,11 +11,7 @@ function chunkString(str, len) {
   return r
 }
 
-function logDataStream(data){  
+export function logDataStream(data : Buffer){  
   const strs = chunkString(data.toString('hex'), 16);
   return strs.map((str) => chunkString(str, 2).join(' ')).join('\n');
 }
-
-module.exports = {
-  logDataStream,
-};

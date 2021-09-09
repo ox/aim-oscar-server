@@ -1,27 +1,42 @@
-const crypto = require('crypto');
-const BaseService = require('./base');
-const { FLAP, SNAC, TLV } = require('../structures');
+import crypto from 'crypto';
+import BaseService from './base';
+import Communicator from '../communicator';
+import { FLAP, SNAC, TLV } from '../structures';
 
 const { AIM_MD5_STRING, FLAGS_EMPTY } = require('../consts');
 
-const users = {
-  toof: 'foo',
+const users : {[key: string]: string} = {
+  'toof': 'foo',
 };
 
-class AuthorizationRegistrationService extends BaseService {
-  constructor(communicator) {
+export default class AuthorizationRegistrationService extends BaseService {
+  private cipher : string;
+
+  constructor(communicator : Communicator) {
     super({ family: 0x17, version: 0x01 }, communicator);
     this.cipher = "HARDY";
   }
 
-  handleMessage(message) {
+  override handleMessage(message : FLAP) {
+    if (message.payload instanceof Buffer) {
+      console.log('Wont handle Buffer payload');
+      return;
+    }
+
     switch (message.payload.service) {
       case 0x02: // Client login request (md5 login sequence)
         const tlvs = message.payload.tlvs;
-        const clientNameTLV = tlvs.find((tlv) => tlv.type === 0x03);
+        const clientNameTLV = tlvs.find((tlv) => tlv instanceof TLV && tlv.type === 0x03);
+        if (!clientNameTLV || !(clientNameTLV instanceof TLV)) {
+          return;
+        }
         console.log("Attempting connection from", clientNameTLV.payload.toString('ascii'));
 
-        const userTLV = tlvs.find((tlv) => tlv.type === 0x01);
+        const userTLV = tlvs.find((tlv) => tlv instanceof TLV && tlv.type === 0x01);
+        if (!userTLV  || !(userTLV instanceof TLV)) {
+          return;
+        }
+
         const username = userTLV.payload.toString('ascii');
 
         if (!users[username]) {
@@ -35,7 +50,10 @@ class AuthorizationRegistrationService extends BaseService {
           return;
         }
 
-        const passwordHashTLV = tlvs.find((tlv) => tlv.type === 0x25);
+        const passwordHashTLV = tlvs.find((tlv) => tlv instanceof TLV && tlv.type === 0x25);
+        if (!passwordHashTLV || !(passwordHashTLV instanceof TLV)) {
+          return;
+        }
 
         const pwHash = crypto.createHash('md5');
         pwHash.update(this.cipher);
@@ -43,7 +61,7 @@ class AuthorizationRegistrationService extends BaseService {
         pwHash.update(AIM_MD5_STRING);
         const digest = pwHash.digest('hex');
 
-        if (digest !== passwordHashTLV.payload.toString('hex')) {
+        if (digest !== (passwordHashTLV as TLV).payload.toString('hex')) {
           console.log('Invalid password for', username);
           const authResp = new FLAP(2, this._getNewSequenceNumber(),
           new SNAC(0x17, 0x03, FLAGS_EMPTY, 0, [
