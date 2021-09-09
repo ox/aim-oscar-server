@@ -1,5 +1,5 @@
 import net from "net";
-import { FLAP, SNAC, TLV } from './structures';
+import { FLAP, SNAC, TLV, TLVType } from './structures';
 import { logDataStream } from './util';
 import { FLAGS_EMPTY } from './consts';
 
@@ -29,6 +29,7 @@ export default class Communicator {
 
   start() {
     // Start negotiating a connection 
+    console.log(FLAP, typeof FLAP);
     const hello = new FLAP(0x01, 0, Buffer.from([0x00, 0x00, 0x00, 0x01]));
     this.send(hello);
   }
@@ -78,19 +79,18 @@ export default class Communicator {
         const tlv = TLV.fromBuffer(message.payload.slice(4));
         console.log(tlv.toString());
 
-        switch (tlv.type) {
-          case 0x06: // Requesting available services
-            // this is just a dword list of service families
-            const servicesOffered : Buffer[] = [];
-            Object.values(this.services).forEach((service) => {
-              servicesOffered.push(Buffer.from([0x00, service.family]));
-            });
-            const resp = new FLAP(2, this._getNewSequenceNumber(),
-              new SNAC(0x01, 0x03, FLAGS_EMPTY, 0, [
-                Buffer.concat(servicesOffered),
-              ]));
-            this.send(resp);
-            return;
+        if (tlv.type === TLVType.GetServices) { // Requesting available services
+          // this is just a dword list of service families
+          const servicesOffered : Buffer[] = [];
+          Object.values(this.services).forEach((service) => {
+            servicesOffered.push(Buffer.from([0x00, service.family]));
+          });
+          const resp = new FLAP(2, this._getNewSequenceNumber(),
+            new SNAC(0x01, 0x03, FLAGS_EMPTY, 0, [
+              Buffer.concat(servicesOffered),
+            ]));
+          this.send(resp);
+          return;
         }
 
         return;

@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import BaseService from './base';
 import Communicator from '../communicator';
-import { FLAP, SNAC, TLV } from '../structures';
+import { FLAP, SNAC, TLV, ErrorCode, TLVType } from '../structures';
 
 const { AIM_MD5_STRING, FLAGS_EMPTY } = require('../consts');
 
@@ -26,13 +26,13 @@ export default class AuthorizationRegistrationService extends BaseService {
     switch (message.payload.service) {
       case 0x02: // Client login request (md5 login sequence)
         const tlvs = message.payload.tlvs;
-        const clientNameTLV = tlvs.find((tlv) => tlv instanceof TLV && tlv.type === 0x03);
+        const clientNameTLV = tlvs.find((tlv) => tlv instanceof TLV && tlv.type === TLVType.ClientName);
         if (!clientNameTLV || !(clientNameTLV instanceof TLV)) {
           return;
         }
         console.log("Attempting connection from", clientNameTLV.payload.toString('ascii'));
 
-        const userTLV = tlvs.find((tlv) => tlv instanceof TLV && tlv.type === 0x01);
+        const userTLV = tlvs.find((tlv) => tlv instanceof TLV && tlv.type === TLVType.User);
         if (!userTLV  || !(userTLV instanceof TLV)) {
           return;
         }
@@ -42,15 +42,15 @@ export default class AuthorizationRegistrationService extends BaseService {
         if (!users[username]) {
           const authResp = new FLAP(2, this._getNewSequenceNumber(),
           new SNAC(0x17, 0x03, FLAGS_EMPTY, 0, [
-            new TLV(0x0001, Buffer.from(username)), // username
-            new TLV(0x0008, Buffer.from([0x00, 0x04])) // incorrect nick/password
+            TLV.forUsername(username), // username
+            TLV.forError(ErrorCode.IncorrectNick) // incorrect nick/password
           ]));
           
           this.send(authResp);
           return;
         }
 
-        const passwordHashTLV = tlvs.find((tlv) => tlv instanceof TLV && tlv.type === 0x25);
+        const passwordHashTLV = tlvs.find((tlv) => tlv instanceof TLV && tlv.type === TLVType.PasswordHash);
         if (!passwordHashTLV || !(passwordHashTLV instanceof TLV)) {
           return;
         }
@@ -65,8 +65,8 @@ export default class AuthorizationRegistrationService extends BaseService {
           console.log('Invalid password for', username);
           const authResp = new FLAP(2, this._getNewSequenceNumber(),
           new SNAC(0x17, 0x03, FLAGS_EMPTY, 0, [
-            new TLV(0x0001, Buffer.from(username)), // username
-            new TLV(0x0008, Buffer.from([0x00, 0x04])) // incorrect nick/password
+            TLV.forUsername(username), // username
+            TLV.forError(ErrorCode.IncorrectNick) // incorrect nick/password
           ]));
           this.send(authResp);
           return;
@@ -74,9 +74,9 @@ export default class AuthorizationRegistrationService extends BaseService {
 
         const authResp = new FLAP(2, this._getNewSequenceNumber(),
         new SNAC(0x17, 0x03, FLAGS_EMPTY, 0, [
-          new TLV(0x01, Buffer.from(username)), // username
-          new TLV(0x05, Buffer.from('10.0.1.29:5190')), // BOS address
-          new TLV(0x06, Buffer.from('im a cookie uwu')) // Authorization cookie
+          TLV.forUsername(username), // username
+          TLV.forBOSAddress('10.0.1.29:5190'), // BOS address
+          TLV.forCookie('im a cookie uwu') // Authorization cookie
         ]));
 
         this.send(authResp);
