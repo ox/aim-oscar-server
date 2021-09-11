@@ -2,16 +2,16 @@ import Communicator from "../communicator";
 import { FLAP } from "../structures";
 
 interface ServiceFamilyVersion {
-  family : number,
+  service : number,
   version : number,
 }
 
 export default class BaseService {
-  public family : number;
+  public service : number;
   public version : number;
 
-  constructor({family, version} : ServiceFamilyVersion, public communicator : Communicator) {
-    this.family = family;
+  constructor({service, version} : ServiceFamilyVersion, public communicator : Communicator) {
+    this.service = service;
     this.version = version;
     this.communicator = communicator;
   }
@@ -26,6 +26,6 @@ export default class BaseService {
 
   handleMessage(message : FLAP) : void {
     throw new Error(''+
-      `Unhandled message for family ${this.family.toString(16)} supporting version ${this.version.toString(16)}`);
+      `Unhandled message for service ${this.service.toString(16)} supporting version ${this.version.toString(16)}`);
   }
 }

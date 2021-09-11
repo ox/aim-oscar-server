@@ -25,6 +25,7 @@ import BaseService from "./services/base";
 export default class Communicator {
 
   private _sequenceNumber = 0;
+  private messageBuffer = Buffer.alloc(0);
   public services : {[key: number]: BaseService} = {};
 
   constructor(public socket : net.Socket) {
@@ -34,9 +35,22 @@ export default class Communicator {
     this.socket.on('data', (data : Buffer) => {
       console.log('DATA-----------------------');
       console.log('RAW\n' + logDataStream(data));
-      const flap = FLAP.fromBuffer(data);
-      console.log('RECV', flap.toString());
-      this.handleMessage(flap);
+
+      // we could get multiple FLAP messages, keep a running buffer of incoming
+      // data and shift-off however many successful FLAPs we can make
+      this.messageBuffer = Buffer.concat([this.messageBuffer, data]);
+
+      while (this.messageBuffer.length > 0) {
+        try {
+          const flap = FLAP.fromBuffer(this.messageBuffer);
+          console.log('RECV', flap.toString());
+          this.messageBuffer = this.messageBuffer.slice(flap.length);
+          this.handleMessage(flap);
+        } catch (e) {
+          // Couldn't make a FLAP
+          break;
+        }
+      }
     });
 
     this.registerServices();
@@ -69,9 +83,10 @@ export default class Communicator {
       new SSI(this),
     ];
 
+    // Make a map of the service number to the service handler
     this.services = {};
     services.forEach((service) => {
-      this.services[service.family] = service;
+      this.services[service.service] = service;
     });
   }
 
@@ -110,10 +125,10 @@ export default class Communicator {
         console.log(tlv.toString());
 
         if (tlv.type === TLVType.GetServices) { // Requesting available services
-          // this is just a dword list of service families
+          // this is just a dword list of subtype families
           const servicesOffered : Buffer[] = [];
-          Object.values(this.services).forEach((service) => {
-            servicesOffered.push(Buffer.from([0x00, service.family]));
+          Object.values(this.services).forEach((subtype) => {
+            servicesOffered.push(Buffer.from([0x00, subtype.service]));
           });
           const resp = new FLAP(2, this._getNewSequenceNumber(),
             new SNAC(0x01, 0x03, FLAGS_EMPTY, 0, Buffer.concat(servicesOffered)));
@@ -128,9 +143,9 @@ export default class Communicator {
           return;
         }
 
-        const familyService = this.services[message.payload.family];
+        const familyService = this.services[message.payload.service];
         if (!familyService) {
-          console.warn('no handler for family', message.payload.family);
+          console.warn('no handler for service', message.payload.service);
           return;
         }
 

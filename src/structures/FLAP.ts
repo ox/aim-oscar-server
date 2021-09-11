@@ -10,6 +10,11 @@ export class FLAP {
     const channel = buf.readInt8(1);
     const sequenceNumber = buf.slice(2,4).readInt16BE(0);
     const payloadLength = buf.slice(4, 6).readInt16BE(0);
+
+    if (buf.length < (6 + payloadLength)) {
+      throw new Error('FLAP payload larger than available buffer data');
+    }
+
     let payload : Buffer | SNAC = buf.slice(6, 6 + payloadLength);
 
     if (channel === 2) {
@@ -32,6 +37,13 @@ export class FLAP {
     } else {
       this.payloadLength = payload.length;
     }
+  }
+
+  /**
+   * @returns Returns the byte length of this FLAP, includes header and payload
+   */
+  get length() {
+    return 6 + this.payloadLength;
   }
 
   toString() {

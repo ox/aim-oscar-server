@@ -1,11 +1,11 @@
 {
   "name": "aim-oscar-server",
   "version": "1.0.0",
-  "main": "src/index.js",
+  "main": "dist/src/index.js",
   "license": "MIT",
   "scripts": {
     "dev:tsc": "tsc --watch",
-    "dev:nodemon": "nodemon --watch ./dist ./dist/index.js",
+    "dev:nodemon": "nodemon --watch ./dist --delay 200ms",
     "start": "tsc && node ./dist/index.js"
   },
   "devDependencies": {

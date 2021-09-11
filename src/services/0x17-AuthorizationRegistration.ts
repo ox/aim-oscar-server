@@ -13,7 +13,7 @@ export default class AuthorizationRegistrationService extends BaseService {
   private cipher : string;
 
   constructor(communicator : Communicator) {
-    super({ family: 0x17, version: 0x01 }, communicator);
+    super({ service: 0x17, version: 0x01 }, communicator);
     this.cipher = "HARDY";
   }
 
@@ -23,7 +23,7 @@ export default class AuthorizationRegistrationService extends BaseService {
       return;
     }
 
-    switch (message.payload.service) {
+    switch (message.payload.subtype) {
       case 0x02: // Client login request (md5 login sequence)
         const payload = message.payload.payload;
         const clientNameTLV = payload.find((tlv) => tlv instanceof TLV && tlv.type === TLVType.ClientName);

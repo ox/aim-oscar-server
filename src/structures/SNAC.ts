@@ -32,11 +32,11 @@ export class RateClass {
 }
 
 export class RateGroupPair {
-  constructor(public family : number, public service : number) {}
+  constructor(public service : number, public subtype : number) {}
   toBuffer() : Buffer {
     const buf = Buffer.alloc(4, 0x00);
-    buf.writeInt16BE(this.family, 0);
-    buf.writeInt16BE(this.service, 2);
+    buf.writeInt16BE(this.service, 0);
+    buf.writeInt16BE(this.subtype, 2);
     return buf;
   }
 }
@@ -61,9 +61,9 @@ export class Rate {
 }
 
 export class SNAC {
-  constructor(public family : number, public service : number, public flags : Buffer, public requestID : number , public payload : (TLV[] | Buffer) = Buffer.alloc(0)) {
-    this.family = family;
+  constructor(public service : number, public subtype : number, public flags : Buffer, public requestID : number , public payload : (TLV[] | Buffer) = Buffer.alloc(0)) {
     this.service = service;
+    this.subtype = subtype;
     this.flags = flags;
     this.requestID = requestID;
     this.payload = payload;
@@ -71,17 +71,17 @@ export class SNAC {
 
   static fromBuffer(buf : Buffer, payloadLength = 0) {
     assert(buf.length >= 10, 'Expected 10 bytes for SNAC header');
-    const family = buf.slice(0,2).readInt16BE(0);
-    const service = buf.slice(2,4).readInt16BE(0);
+    const service = buf.slice(0,2).readInt16BE(0);
+    const subtype = buf.slice(2,4).readInt16BE(0);
     const flags = buf.slice(4, 6);
     const requestID = buf.slice(6, 10).readInt32BE(0);
     let payload : Buffer | TLV[]; // SNACs can have multiple payload
 
     // Some SNACs don't have TLV payloads
-    if (family === 0x01 && service === 0x17 ||
-        family === 0x01 && service === 0x07 ||
-        family === 0x01 && service === 0x08 ||
-        family === 0x01 && service === 0x0e) {
+    if (service === 0x01 && subtype === 0x17 ||
+        service === 0x01 && subtype === 0x07 ||
+        service === 0x01 && subtype === 0x08 ||
+        service === 0x01 && subtype === 0x0e) {
       payload = buf.slice(10, 10 + payloadLength);
     } else {
       payload = [];
@@ -100,27 +100,27 @@ export class SNAC {
       }
     }
 
-    return new SNAC(family, service, flags, requestID, payload);
+    return new SNAC(service, subtype, flags, requestID, payload);
   }
 
-  static forRateClass(family : number, service : number, flags : Buffer, requestID : number, rates : Rate[]) : SNAC {
+  static forRateClass(service : number, subtype : number, flags : Buffer, requestID : number, rates : Rate[]) : SNAC {
     const payloadHeader = Buffer.alloc(2, 0x00);
     payloadHeader.writeUInt16BE(rates.length);
 
     const payloadBody = rates.map((rateClass) => rateClass.toBuffer());
     const payload = Buffer.concat([payloadHeader, ...payloadBody]);
 
-    return new SNAC(family, service, flags, requestID, payload);
+    return new SNAC(service, subtype, flags, requestID, payload);
   }
 
   toString() {
-    return `SNAC(${this.family.toString(16)},${this.service.toString(16)}) #${this.requestID}\n  ${this.payload}`;
+    return `SNAC(${this.service.toString(16)},${this.subtype.toString(16)}) #${this.requestID}\n  ${this.payload}`;
   }
 
   toBuffer() {
     const SNACHeader = Buffer.alloc(10, 0, 'hex');
-    SNACHeader.writeUInt16BE(this.family);
-    SNACHeader.writeUInt16BE(this.service, 2);
+    SNACHeader.writeUInt16BE(this.service);
+    SNACHeader.writeUInt16BE(this.subtype, 2);
     SNACHeader.set(this.flags, 4);
     SNACHeader.writeUInt32BE(this.requestID, 6);
 
