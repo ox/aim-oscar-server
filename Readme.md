@@ -5,5 +5,6 @@ Run your own AIM chat server, managing users and groups. Hook up a vintage clien
 ## Roadmap
 
 - [x] Accept and start negotiating a connection with a client
-- [ ] Perform username/password authentication
+- [x] Perform username/password authentication
+- [ ] Set up basic services
 - [ ] The rest of the owl
