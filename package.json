@@ -4,7 +4,8 @@
   "main": "src/index.js",
   "license": "MIT",
   "scripts": {
-    "dev": "nodemon --ignore ./dist/ --watch ./src -e ts --exec 'tsc && node ./dist/index.js'",
+    "dev:tsc": "tsc --watch",
+    "dev:nodemon": "nodemon --watch ./dist ./dist/index.js",
     "start": "tsc && node ./dist/index.js"
   },
   "devDependencies": {
@@ -12,5 +13,8 @@
     "@types/node": "^16.7.13",
     "nodemon": "^2.0.12",
     "typescript": "^4.4.2"
+  },
+  "dependencies": {
+    "table-layout": "^3.0.0"
   }
 }

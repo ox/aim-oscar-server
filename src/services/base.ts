@@ -25,6 +25,7 @@ export default class BaseService {
   }
 
   handleMessage(message : FLAP) : void {
-    return;
+    throw new Error(''+
+      `Unhandled message for family ${this.family.toString(16)} supporting version ${this.version.toString(16)}`);
   }
 }

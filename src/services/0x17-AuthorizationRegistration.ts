@@ -25,14 +25,14 @@ export default class AuthorizationRegistrationService extends BaseService {
 
     switch (message.payload.service) {
       case 0x02: // Client login request (md5 login sequence)
-        const tlvs = message.payload.tlvs;
-        const clientNameTLV = tlvs.find((tlv) => tlv instanceof TLV && tlv.type === TLVType.ClientName);
+        const payload = message.payload.payload;
+        const clientNameTLV = payload.find((tlv) => tlv instanceof TLV && tlv.type === TLVType.ClientName);
         if (!clientNameTLV || !(clientNameTLV instanceof TLV)) {
           return;
         }
         console.log("Attempting connection from", clientNameTLV.payload.toString('ascii'));
 
-        const userTLV = tlvs.find((tlv) => tlv instanceof TLV && tlv.type === TLVType.User);
+        const userTLV = payload.find((tlv) => tlv instanceof TLV && tlv.type === TLVType.User);
         if (!userTLV  || !(userTLV instanceof TLV)) {
           return;
         }
@@ -50,7 +50,7 @@ export default class AuthorizationRegistrationService extends BaseService {
           return;
         }
 
-        const passwordHashTLV = tlvs.find((tlv) => tlv instanceof TLV && tlv.type === TLVType.PasswordHash);
+        const passwordHashTLV = payload.find((tlv) => tlv instanceof TLV && tlv.type === TLVType.PasswordHash);
         if (!passwordHashTLV || !(passwordHashTLV instanceof TLV)) {
           return;
         }
@@ -76,18 +76,18 @@ export default class AuthorizationRegistrationService extends BaseService {
         new SNAC(0x17, 0x03, FLAGS_EMPTY, 0, [
           TLV.forUsername(username), // username
           TLV.forBOSAddress('10.0.1.29:5190'), // BOS address
-          TLV.forCookie('im a cookie uwu') // Authorization cookie
+          TLV.forCookie(JSON.stringify({cookie: 'uwu', user: 'toof'})) // Authorization cookie
         ]));
 
         this.send(authResp);
         return;
       case 0x06: // Request md5 authkey
-        const payload = Buffer.alloc(2, 0xFF, 'hex');
-        payload.writeUInt16BE(this.cipher.length);
+        const MD5AuthKeyHeader = Buffer.alloc(2, 0xFF, 'hex');
+        MD5AuthKeyHeader.writeUInt16BE(this.cipher.length);
         const md5ReqResp = new FLAP(2, this._getNewSequenceNumber(),
-          new SNAC(0x17, 0x07, FLAGS_EMPTY, 0, [
-            Buffer.concat([payload, Buffer.from(this.cipher, 'binary')]),
-          ]));
+          new SNAC(0x17, 0x07, FLAGS_EMPTY, 0,
+            Buffer.concat([MD5AuthKeyHeader, Buffer.from(this.cipher, 'binary')]),
+          ));
         this.send(md5ReqResp);
         break;
     }
