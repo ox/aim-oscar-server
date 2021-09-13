@@ -1,12 +1,16 @@
 import crypto from 'crypto';
 import BaseService from './base';
-import Communicator from '../communicator';
+import Communicator, { User } from '../communicator';
 import { FLAP, SNAC, TLV, ErrorCode, TLVType } from '../structures';
 
 const { AIM_MD5_STRING, FLAGS_EMPTY } = require('../consts');
 
-const users : {[key: string]: string} = {
-  'toof': 'foo',
+const users : {[key: string]: User} = {
+  'toof': {
+    uin: '156089',
+    password: 'foo',
+    memberSince: new Date('December 17, 1998 03:24:00'),
+  }
 };
 
 export default class AuthorizationRegistrationService extends BaseService {
@@ -57,7 +61,7 @@ export default class AuthorizationRegistrationService extends BaseService {
 
         const pwHash = crypto.createHash('md5');
         pwHash.update(this.cipher);
-        pwHash.update(users[username]);
+        pwHash.update(users[username].password);
         pwHash.update(AIM_MD5_STRING);
         const digest = pwHash.digest('hex');
 
@@ -72,12 +76,17 @@ export default class AuthorizationRegistrationService extends BaseService {
           return;
         }
 
+        const host = this.communicator.socket.localAddress.split(':').pop();
+        const port = this.communicator.socket.localPort;
+
         const authResp = new FLAP(2, this._getNewSequenceNumber(),
         new SNAC(0x17, 0x03, FLAGS_EMPTY, 0, [
           TLV.forUsername(username), // username
-          TLV.forBOSAddress('10.0.1.29:5190'), // BOS address
+          TLV.forBOSAddress(`${host}:${port}`), // BOS address
           TLV.forCookie(JSON.stringify({cookie: 'uwu', user: 'toof'})) // Authorization cookie
         ]));
+
+        this.communicator.user = Object.assign({}, users[username], {username});
 
         this.send(authResp);
         return;

@@ -22,20 +22,24 @@ import AuthorizationRegistrationService from "./services/0x17-AuthorizationRegis
 
 import BaseService from "./services/base";
 
+export interface User {
+  uin: string,
+  password: string,
+  memberSince: Date,
+}
+
 export default class Communicator {
 
   private _sequenceNumber = 0;
   private messageBuffer = Buffer.alloc(0);
   public services : {[key: number]: BaseService} = {};
+  public user? : User;
 
   constructor(public socket : net.Socket) {
     // Hold on to the socket
     this.socket = socket;
 
     this.socket.on('data', (data : Buffer) => {
-      console.log('DATA-----------------------');
-      console.log('RAW\n' + logDataStream(data));
-
       // we could get multiple FLAP messages, keep a running buffer of incoming
       // data and shift-off however many successful FLAPs we can make
       this.messageBuffer = Buffer.concat([this.messageBuffer, data]);
@@ -43,9 +47,12 @@ export default class Communicator {
       while (this.messageBuffer.length > 0) {
         try {
           const flap = FLAP.fromBuffer(this.messageBuffer);
+          console.log('DATA-----------------------');
+          console.log('RAW\n' + logDataStream(flap.toBuffer()));
           console.log('RECV', flap.toString());
           this.messageBuffer = this.messageBuffer.slice(flap.length);
           this.handleMessage(flap);
+          console.log('-----------------------DATA');
         } catch (e) {
           // Couldn't make a FLAP
           break;
@@ -65,7 +72,6 @@ export default class Communicator {
 
   registerServices() {
     const services = [
-      new AuthorizationRegistrationService(this),
       new GenericServiceControls(this),
       new LocationServices(this),
       new BuddyListManagement(this),
@@ -80,7 +86,8 @@ export default class Communicator {
       new Chat(this),
       new DirectorySearch(this),
       new ServerStoredBuddyIcons(this),
-      new SSI(this),
+      // new SSI(this),
+      new AuthorizationRegistrationService(this),
     ];
 
     // Make a map of the service number to the service handler
@@ -97,7 +104,6 @@ export default class Communicator {
   send(message : FLAP) {
     console.log('SEND', message.toString());
     console.log('RAW\n' + logDataStream(message.toBuffer()));
-    console.log('-----------------------DATA');
     this.socket.write(message.toBuffer());
   }
 

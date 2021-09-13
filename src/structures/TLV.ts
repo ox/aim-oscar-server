@@ -1,5 +1,8 @@
 import {ErrorCode} from "./ErrorCode";
 
+import { USER_STATUS_VARIOUS, USER_STATUS } from "../consts";
+import { char, word, dword } from './bytes';
+
 export const enum TLVType {
   User = 0x01,
   ClientName = 0x03,
@@ -36,6 +39,14 @@ export class TLV {
     return new TLV(0x08, Buffer.from([0x00, errorCode]));
   }
 
+  static forStatus(various : USER_STATUS_VARIOUS, status: USER_STATUS) {
+    const varbuf = Buffer.alloc(2, 0x00);
+    varbuf.writeUInt16BE(various);
+    const statbuf = Buffer.alloc(2, 0x00);
+    statbuf.writeUInt16BE(status);
+    return new TLV(0x06, Buffer.concat([varbuf, statbuf]));
+  }
+
   constructor(public type : TLVType, public payload : Buffer) {
     this.type = type;
     this.payload = payload;
@@ -46,9 +57,10 @@ export class TLV {
   }
 
   toBuffer() {
-    const TLVHeader = Buffer.alloc(4, 0, 'hex');
-    TLVHeader.writeUInt16BE(this.type);
-    TLVHeader.writeUInt16BE(this.length, 2);
-    return Buffer.concat([TLVHeader, this.payload]);
+    return Buffer.concat([
+      word(this.type),
+      word(this.length),
+      this.payload,
+    ]);
   }
 }

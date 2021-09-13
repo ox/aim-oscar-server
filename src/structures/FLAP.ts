@@ -17,7 +17,7 @@ export class FLAP {
 
     let payload : Buffer | SNAC = buf.slice(6, 6 + payloadLength);
 
-    if (channel === 2) {
+    if (channel === 2 && payloadLength > 0) {
       payload = SNAC.fromBuffer(payload, payloadLength);
     }
 

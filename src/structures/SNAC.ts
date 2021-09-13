@@ -78,10 +78,15 @@ export class SNAC {
     let payload : Buffer | TLV[]; // SNACs can have multiple payload
 
     // Some SNACs don't have TLV payloads
+    // Maybe this should be something that the service does itself when it
+    // wants to respond to a message;
     if (service === 0x01 && subtype === 0x17 ||
+        service === 0x01 && subtype === 0x14 ||
         service === 0x01 && subtype === 0x07 ||
         service === 0x01 && subtype === 0x08 ||
-        service === 0x01 && subtype === 0x0e) {
+        service === 0x01 && subtype === 0x0e ||
+        service === 0x04 && subtype === 0x02 ||
+        service === 0x09 && subtype === 0x04) {
       payload = buf.slice(10, 10 + payloadLength);
     } else {
       payload = [];
