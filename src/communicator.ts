@@ -1,24 +1,6 @@
 import net from "net";
 import { FLAP, SNAC, TLV, TLVType } from './structures';
 import { logDataStream } from './util';
-import { FLAGS_EMPTY } from './consts';
-
-import GenericServiceControls from "./services/0x01-GenericServiceControls";
-import LocationServices from "./services/0x02-LocationSerices";
-import BuddyListManagement from "./services/0x03-BuddyListManagement";
-import ICBM from "./services/0x04-ICBM";
-import Invitation from "./services/0x06-Invitation";
-import Administration from "./services/0x07-Administration";
-import Popups from "./services/0x08-Popups";
-import PrivacyManagement from "./services/0x09-PrivacyManagement";
-import UserLookup from "./services/0x0a-UserLookup";
-import UsageStats from "./services/0x0b-UsageStats";
-import ChatNavigation from "./services/0x0d-ChatNavigation";
-import Chat from "./services/0x0e-Chat";;
-import DirectorySearch from "./services/0x0f-DirectorySearch";
-import ServerStoredBuddyIcons from "./services/0x10-ServerStoredBuddyIcons";
-import SSI from "./services/0x13-SSI";
-import AuthorizationRegistrationService from "./services/0x17-AuthorizationRegistration";
 
 import BaseService from "./services/base";
 
@@ -30,15 +12,15 @@ export interface User {
 
 export default class Communicator {
 
+  private keepaliveInterval? : NodeJS.Timer;
   private _sequenceNumber = 0;
   private messageBuffer = Buffer.alloc(0);
   public services : {[key: number]: BaseService} = {};
   public user? : User;
 
-  constructor(public socket : net.Socket) {
-    // Hold on to the socket
-    this.socket = socket;
+  constructor(public socket : net.Socket) {}
 
+  startListening() {
     this.socket.on('data', (data : Buffer) => {
       // we could get multiple FLAP messages, keep a running buffer of incoming
       // data and shift-off however many successful FLAPs we can make
@@ -60,36 +42,23 @@ export default class Communicator {
       }
     });
 
-    this.registerServices();
-    this.start();
-  }
+    this.keepaliveInterval = setInterval(() => {
+      const keepaliveFlap = new FLAP(0x05, this.nextReqID, Buffer.from(""));
+      this.socket.write(keepaliveFlap.toBuffer());
+    }, 4 * 60 * 1000);
 
-  start() {
+    this.socket.on('close', () => {
+      if (this.keepaliveInterval) {
+        clearInterval(this.keepaliveInterval);
+      }
+    });
+
     // Start negotiating a connection 
     const hello = new FLAP(0x01, 0, Buffer.from([0x00, 0x00, 0x00, 0x01]));
     this.send(hello);
   }
 
-  registerServices() {
-    const services = [
-      new GenericServiceControls(this),
-      new LocationServices(this),
-      new BuddyListManagement(this),
-      new ICBM(this),
-      new Invitation(this),
-      new Administration(this),
-      new Popups(this),
-      new PrivacyManagement(this),
-      new UserLookup(this),
-      new UsageStats(this),
-      new ChatNavigation(this),
-      new Chat(this),
-      new DirectorySearch(this),
-      new ServerStoredBuddyIcons(this),
-      // new SSI(this),
-      new AuthorizationRegistrationService(this),
-    ];
-
+  registerServices(services : BaseService[] = []) {
     // Make a map of the service number to the service handler
     this.services = {};
     services.forEach((service) => {
@@ -97,8 +66,8 @@ export default class Communicator {
     });
   }
 
-  _getNewSequenceNumber() {
-    return ++this._sequenceNumber;
+  get nextReqID() {
+    return ++this._sequenceNumber & 0xFFFF;
   }
 
   send(message : FLAP) {
@@ -136,8 +105,8 @@ export default class Communicator {
           Object.values(this.services).forEach((subtype) => {
             servicesOffered.push(Buffer.from([0x00, subtype.service]));
           });
-          const resp = new FLAP(2, this._getNewSequenceNumber(),
-            new SNAC(0x01, 0x03, FLAGS_EMPTY, 0, Buffer.concat(servicesOffered)));
+          const resp = new FLAP(2, this.nextReqID,
+            new SNAC(0x01, 0x03,  Buffer.concat(servicesOffered)));
           this.send(resp);
           return;
         }

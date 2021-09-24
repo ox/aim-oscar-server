@@ -19,8 +19,8 @@ export default class PrivacyManagement extends BaseService {
     }
 
     if (message.payload.subtype === 0x02) {
-      const resp = new FLAP(0x02, this._getNewSequenceNumber(),
-        new SNAC(0x09, 0x03, FLAGS_EMPTY, 0, [
+      const resp = new FLAP(0x02, this.nextReqID,
+        new SNAC(0x09, 0x03,  [
           new TLV(0x01, word(200)), // max visible list size
           new TLV(0x02, word(200))  // max invisible list size
         ]));

@@ -134,7 +134,7 @@ function bufferFromWebText(webtext : string) : Buffer {
   return Buffer.from(webtext.replace(/\s/g, ''), 'hex');
 }
 
-const FLAPSpec = [
+const SNAC_01_0F = [
   byte("FLAP Header"),
   byte("Channel"),
   word("Sequence ID"),
@@ -189,5 +189,5 @@ const exampleWebText = ''+
 `
 
 if (require.main === module) {
-  printBuffer(bufferFromWebText(exampleWebText), FLAPSpec);
+  printBuffer(bufferFromWebText(exampleWebText), SNAC_01_0F);
 }

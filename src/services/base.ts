@@ -6,7 +6,7 @@ interface ServiceFamilyVersion {
   version : number,
 }
 
-export default class BaseService {
+export default abstract class BaseService {
   public service : number;
   public version : number;
 
@@ -20,8 +20,8 @@ export default class BaseService {
     this.communicator.send(message);
   }
 
-  _getNewSequenceNumber() {
-    return this.communicator._getNewSequenceNumber();
+  get nextReqID() {
+    return this.communicator.nextReqID;
   }
 
   handleMessage(message : FLAP) : void {

@@ -17,7 +17,7 @@ interface ChannelSettings {
 
 export default class ICBM extends BaseService {
   private channel : ChannelSettings = {
-    channel: 2,
+    channel: 0,
     messageFlags: 3,
     maxMessageSnacSize: 512,
     maxSenderWarningLevel: 999,
@@ -25,6 +25,8 @@ export default class ICBM extends BaseService {
     minimumMessageInterval: 0,
     unknown: 1000,
   };
+
+  private channels : ChannelSettings[] = [];
 
   constructor(communicator : Communicator) {
     super({service: 0x04, version: 0x01}, communicator)
@@ -52,8 +54,12 @@ export default class ICBM extends BaseService {
       }
 
       const payload = message.payload.payload;
+      const channel = payload.readUInt16BE(0);
+
+      // TODO: set settings based on channel provided
+
       this.channel = {
-        channel: payload.readUInt16BE(0),
+        channel,
         messageFlags: payload.readUInt32BE(2),
         maxMessageSnacSize: payload.readUInt16BE(6),
         maxSenderWarningLevel: payload.readUInt16BE(8),
@@ -79,8 +85,8 @@ export default class ICBM extends BaseService {
       // It's identical to the channel set request the client
       // sends earlier. Also the 3.x client sends a channel set request
       // so early
-      const resp = new FLAP(0x02, this._getNewSequenceNumber(),
-        new SNAC(0x04, 0x05, FLAGS_EMPTY, 0, payload));
+      const resp = new FLAP(0x02, this.nextReqID,
+        new SNAC(0x04, 0x05,  payload));
       this.send(resp);
       return;
     }

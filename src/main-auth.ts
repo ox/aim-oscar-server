@@ -1,9 +1,11 @@
 import net from 'net';
 import Communicator from './communicator';
 
+import AuthorizationRegistrationService from "./services/0x17-AuthorizationRegistration";
+
 const server = net.createServer((socket) => {
   console.log('client connected...');
-  socket.setTimeout(30000);
+  socket.setTimeout(5 * 60 * 1000); // 5 minute timeout
 
   socket.on('error', (e) => {
     console.error('socket encountered an error:', e);
@@ -19,7 +21,12 @@ const server = net.createServer((socket) => {
     console.log('client disconnected...');
   });
 
-  new Communicator(socket);
+  const comm = new Communicator(socket);
+  const services = [
+    new AuthorizationRegistrationService(comm),
+  ];
+  comm.registerServices(services);
+  comm.startListening();
 });
 
 server.on('error', (err) => {
@@ -27,5 +34,5 @@ server.on('error', (err) => {
 });
 
 server.listen(5190, () => {
-  console.log('OSCAR ready on :5190');
+  console.log('AUTH ready on :5190');
 });

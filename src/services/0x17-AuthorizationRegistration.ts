@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import BaseService from './base';
 import Communicator, { User } from '../communicator';
 import { FLAP, SNAC, TLV, ErrorCode, TLVType } from '../structures';
+import { word } from '../structures/bytes';
 
 const { AIM_MD5_STRING, FLAGS_EMPTY } = require('../consts');
 
@@ -44,8 +45,8 @@ export default class AuthorizationRegistrationService extends BaseService {
         const username = userTLV.payload.toString('ascii');
 
         if (!users[username]) {
-          const authResp = new FLAP(2, this._getNewSequenceNumber(),
-          new SNAC(0x17, 0x03, FLAGS_EMPTY, 0, [
+          const authResp = new FLAP(2, this.nextReqID,
+          new SNAC(0x17, 0x03,  [
             TLV.forUsername(username), // username
             TLV.forError(ErrorCode.IncorrectNick) // incorrect nick/password
           ]));
@@ -67,22 +68,25 @@ export default class AuthorizationRegistrationService extends BaseService {
 
         if (digest !== (passwordHashTLV as TLV).payload.toString('hex')) {
           console.log('Invalid password for', username);
-          const authResp = new FLAP(2, this._getNewSequenceNumber(),
-          new SNAC(0x17, 0x03, FLAGS_EMPTY, 0, [
+          const authResp = new FLAP(2, this.nextReqID,
+          new SNAC(0x17, 0x03,  [
             TLV.forUsername(username), // username
             TLV.forError(ErrorCode.IncorrectNick) // incorrect nick/password
           ]));
           this.send(authResp);
+
+          // Close this connection
+          const plsLeave = new FLAP(4, this.nextReqID, Buffer.from([]));
+          this.send(plsLeave);
           return;
         }
 
-        const host = this.communicator.socket.localAddress.split(':').pop();
-        const port = this.communicator.socket.localPort;
-
-        const authResp = new FLAP(2, this._getNewSequenceNumber(),
-        new SNAC(0x17, 0x03, FLAGS_EMPTY, 0, [
+        const chatHost = this.communicator.socket.localAddress.split(':').pop() + ':5191';
+      
+        const authResp = new FLAP(2, this.nextReqID,
+        new SNAC(0x17, 0x03,  [
           TLV.forUsername(username), // username
-          TLV.forBOSAddress(`${host}:${port}`), // BOS address
+          TLV.forBOSAddress(chatHost), // BOS address
           TLV.forCookie(JSON.stringify({cookie: 'uwu', user: 'toof'})) // Authorization cookie
         ]));
 
@@ -93,8 +97,8 @@ export default class AuthorizationRegistrationService extends BaseService {
       case 0x06: // Request md5 authkey
         const MD5AuthKeyHeader = Buffer.alloc(2, 0xFF, 'hex');
         MD5AuthKeyHeader.writeUInt16BE(this.cipher.length);
-        const md5ReqResp = new FLAP(2, this._getNewSequenceNumber(),
-          new SNAC(0x17, 0x07, FLAGS_EMPTY, 0,
+        const md5ReqResp = new FLAP(2, this.nextReqID,
+          new SNAC(0x17, 0x07, 
             Buffer.concat([MD5AuthKeyHeader, Buffer.from(this.cipher, 'binary')]),
           ));
         this.send(md5ReqResp);

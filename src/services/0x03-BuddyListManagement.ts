@@ -16,8 +16,8 @@ export default class BuddyListManagement extends BaseService {
     }
 
     if (message.payload.subtype === 0x02) {
-      const resp = new FLAP(0x02, this._getNewSequenceNumber(),
-        new SNAC(0x03, 0x03, FLAGS_EMPTY, 0, [
+      const resp = new FLAP(0x02, this.nextReqID,
+        new SNAC(0x03, 0x03,  [
           new TLV(0x01, word(600)), // 600 max buddies
           new TLV(0x02, word(750)), // 750 max watchers
           new TLV(0x03, word(512)), // 512 max online notifications ?

@@ -3,7 +3,7 @@ import Communicator from '../communicator';
 
 import { FLAP, SNAC, TLV } from '../structures';
 import { char, word, dword, dot2num } from '../structures/bytes';
-import { FLAGS_EMPTY, USER_STATUS, USER_STATUS_VARIOUS } from '../consts';
+import {  USER_STATUS, USER_STATUS_VARIOUS } from '../consts';
 
 export default class LocationServices extends BaseService {
   constructor(communicator : Communicator) {
@@ -17,8 +17,8 @@ export default class LocationServices extends BaseService {
 
     // request location service parameters and limitations
     if (message.payload.subtype === 0x02) {
-      const resp = new FLAP(0x02, this._getNewSequenceNumber(),
-        new SNAC(0x02,0x03, FLAGS_EMPTY, 0, [
+      const resp = new FLAP(0x02, this.nextReqID,
+        new SNAC(0x02,0x03,  [
           new TLV(0x01, word(0x400)), // max profile length
           new TLV(0x02, word(0x10)),  // max capabilities
           new TLV(0x03, word(0xA)),   // unknown

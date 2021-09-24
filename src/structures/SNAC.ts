@@ -1,4 +1,5 @@
 import assert from "assert";
+import { FLAGS_EMPTY } from "../consts";
 import { TLV } from "./TLV";
 
 export class RateClass {
@@ -60,13 +61,16 @@ export class Rate {
   }
 }
 
+let snacID = 0x2000;
+
 export class SNAC {
-  constructor(public service : number, public subtype : number, public flags : Buffer, public requestID : number , public payload : (TLV[] | Buffer) = Buffer.alloc(0)) {
+  constructor(public service : number, public subtype : number, public payload : (TLV[] | Buffer) = Buffer.alloc(0),   public requestID : number = 0, public flags : Buffer = FLAGS_EMPTY) {
     this.service = service;
     this.subtype = subtype;
-    this.flags = flags;
-    this.requestID = requestID;
     this.payload = payload;
+
+    this.requestID = requestID || (snacID++);
+    this.flags = flags;
   }
 
   static fromBuffer(buf : Buffer, payloadLength = 0) {
@@ -105,17 +109,17 @@ export class SNAC {
       }
     }
 
-    return new SNAC(service, subtype, flags, requestID, payload);
+    return new SNAC(service, subtype, payload, requestID, flags);
   }
 
-  static forRateClass(service : number, subtype : number, flags : Buffer, requestID : number, rates : Rate[]) : SNAC {
+  static forRateClass(service : number, subtype : number, rates : Rate[]) : SNAC {
     const payloadHeader = Buffer.alloc(2, 0x00);
     payloadHeader.writeUInt16BE(rates.length);
 
     const payloadBody = rates.map((rateClass) => rateClass.toBuffer());
     const payload = Buffer.concat([payloadHeader, ...payloadBody]);
 
-    return new SNAC(service, subtype, flags, requestID, payload);
+    return new SNAC(service, subtype, payload);
   }
 
   toString() {

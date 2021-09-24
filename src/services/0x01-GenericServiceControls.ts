@@ -1,7 +1,7 @@
 import BaseService from './base';
 import Communicator from '../communicator';
 import { FLAP, Rate, RateClass, RatedServiceGroup, RateGroupPair, SNAC, TLV } from '../structures';
-import { FLAGS_EMPTY, USER_STATUS_VARIOUS, USER_STATUS } from '../consts';
+import {  USER_STATUS_VARIOUS, USER_STATUS } from '../consts';
 import { char, word, dword, dot2num } from '../structures/bytes';
 
 export default class GenericServiceControls extends BaseService {
@@ -31,8 +31,8 @@ export default class GenericServiceControls extends BaseService {
     }
 
     if (message.payload.subtype === 0x06) { // Client ask server for rate limits info
-      const resp = new FLAP(0x02, this._getNewSequenceNumber(),
-        SNAC.forRateClass(0x01, 0x07, FLAGS_EMPTY, 0, [
+      const resp = new FLAP(0x02, this.nextReqID,
+        SNAC.forRateClass(0x01, 0x07, [
           new Rate(
             new RateClass(1, 80, 2500, 2000, 1500, 800, 3400 /*fake*/, 6000, 0, 0),
             new RatedServiceGroup(1, [new RateGroupPair(0x00, 0x00)])
@@ -40,8 +40,8 @@ export default class GenericServiceControls extends BaseService {
         ]))
       this.send(resp);
 
-      const motd = new FLAP(0x02, this._getNewSequenceNumber(),
-        new SNAC(0x01, 0x13, FLAGS_EMPTY, 0, Buffer.concat([
+      const motd = new FLAP(0x02, this.nextReqID,
+        new SNAC(0x01, 0x13,  Buffer.concat([
           word(0x0004),
           (new TLV(0x0B, Buffer.from("Hello world!"))).toBuffer(),
         ])))
@@ -85,8 +85,8 @@ export default class GenericServiceControls extends BaseService {
 
       const buf = Buffer.concat([payloadHeader, ...tlvs.map((tlv) => tlv.toBuffer())])
 
-      const resp = new FLAP(0x02, this._getNewSequenceNumber(),
-        new SNAC(0x01, 0x0f, FLAGS_EMPTY, 0, buf));
+      const resp = new FLAP(0x02, this.nextReqID,
+        new SNAC(0x01, 0x0f, buf));
 
       this.send(resp);
       return;
@@ -97,8 +97,8 @@ export default class GenericServiceControls extends BaseService {
       Object.values(this.communicator.services).forEach((subtype) => {
         serviceVersions.push(Buffer.from([0x00, subtype.service, 0x00, subtype.version]));
       });
-      const resp = new FLAP(0x02, this._getNewSequenceNumber(),
-        new SNAC(0x01, 0x18, FLAGS_EMPTY, 0, Buffer.concat(serviceVersions)));
+      const resp = new FLAP(0x02, this.nextReqID,
+        new SNAC(0x01, 0x18,  Buffer.concat(serviceVersions)));
       this.send(resp);
       return;
     }
