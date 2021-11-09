@@ -6,6 +6,7 @@ import BaseService from "./services/base";
 
 export interface User {
   uin: string,
+  username: string,
   password: string,
   memberSince: Date,
 }
@@ -97,7 +98,15 @@ export default class Communicator {
         }
 
         const tlv = TLV.fromBuffer(message.payload.slice(4));
+        console.log('thing sent to channel 1:');
         console.log(tlv.toString());
+
+        if (tlv.type === 0x06) {
+          // client sent us a cookie
+          const {cookie, user} = JSON.parse(tlv.payload.toString());
+          console.log('cookie:', cookie);
+          this.user = user;
+        }
 
         if (tlv.type === TLVType.GetServices) { // Requesting available services
           // this is just a dword list of subtype families

@@ -47,9 +47,9 @@ const server = net.createServer((socket) => {
     new PrivacyManagement(comm),
     new UserLookup(comm),
     new UsageStats(comm),
-    new ChatNavigation(comm),
-    new Chat(comm),
-    new DirectorySearch(comm),
+    // new ChatNavigation(comm),
+    // new Chat(comm),
+    // new DirectorySearch(comm),
     new ServerStoredBuddyIcons(comm),
     new SSI(comm),
   ];

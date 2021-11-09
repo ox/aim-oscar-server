@@ -29,6 +29,7 @@ interface Spec {
   isRepeat? : boolean,
   isParam? : boolean,
   isTLV? : boolean,
+  dump? : boolean,
   repeatSpecs?: Spec[],
 }
 
@@ -56,6 +57,10 @@ function tlv(description : string) : Spec {
   return {size : -1, description, isTLV: true};
 }
 
+function dump() : Spec {
+  return {size: -1, description: '', dump: true};
+}
+
 function parseBuffer(buf : Buffer, spec : Spec[], repeatTimes = 0) {
   let offset = 0;
   let rows = [];
@@ -64,6 +69,12 @@ function parseBuffer(buf : Buffer, spec : Spec[], repeatTimes = 0) {
   for (let section of spec) {
     let value : any = 0;
     let bufStr : string = '';
+
+    if (section.dump) {
+      rows.push({raw: logDataStream(buf.slice(offset))});
+      break;
+    }
+
     if (section.size === 8) {
       bufStr = buf.slice(offset, offset + 1).toString('hex');
       value = buf.readInt8(offset);
@@ -127,7 +138,15 @@ function parseBuffer(buf : Buffer, spec : Spec[], repeatTimes = 0) {
 
 function printBuffer(buf : Buffer, spec : Spec[]) {
   const rows = parseBuffer(buf, spec);
-  console.log((new Table(rows)).toString());
+
+  const lastRow = rows[rows.length - 1];
+
+  if (!!lastRow.raw) {
+    console.log((new Table(rows.slice(0, -1))).toString());
+    console.log(lastRow.raw);
+  } else {
+    console.log((new Table(rows)).toString());
+  }
 }
 
 function bufferFromWebText(webtext : string) : Buffer {
@@ -169,7 +188,7 @@ const SNAC_01_0F = [
   dword("Last EXT status update time"),
 ];
 
-const exampleWebText = ''+
+const exSNAC_01_0F = ''+
 `
 2a 02 00 05 00 71 00 01
 00 0f 00 00 00 00 00 00
@@ -186,8 +205,91 @@ const exampleWebText = ''+
 00 00 00 00 00 00 00 00
 00 03 00 00 00 00 00 00
 00 00 00 00 00 00 00
+`;
+
+const SNAC_01_07 = [
+  byte("FLAP Header"),
+  byte("Channel"),
+  word("Sequence ID"),
+  word("Payload Length"),
+  word("SNAC Family"),
+  word("SNAC Subtype"),
+  word("SNAC Flags"),
+  dword("SNAC Request-ID"),
+
+  repeat(16, "Number of Rate Classes", [
+    word('Rate class ID'),
+    dword('Window size'),
+    dword('Clear level'),
+    dword('Alert level'),
+    dword('Limit level'),
+    dword('Disconnect level'),
+    dword('Current level'),
+    dword('Max level'),
+    dword('Last time'),
+    byte('Current State'),
+  ]),
+
+  dump(),
+];
+
+const exSNAC_01_07 = ''+
 `
+2a 02 00 05 03 3b 00 01 00 07 00 00 00 00
+00 00 00 05 00 01 00 00 00 50 00 00 09 c4 00 00
+07 d0 00 00 05 dc 00 00 03 20 00 00 16 dc 00 00
+17 70 00 00 00 00 00 00 02 00 00 00 50 00 00 0b
+b8 00 00 07 d0 00 00 05 dc 00 00 03 e8 00 00 17
+70 00 00 17 70 00 00 00 7b 00 00 03 00 00 00 1e
+00 00 0e 74 00 00 0f a0 00 00 05 dc 00 00 03 e8
+00 00 17 70 00 00 17 70 00 00 00 00 00 00 04 00
+00 00 14 00 00 15 7c 00 00 14 b4 00 00 10 68 00
+00 0b b8 00 00 17 70 00 00 1f 40 00 00 00 7b 00
+00 05 00 00 00 0a 00 00 15 7c 00 00 14 b4 00 00
+10 68 00 00 0b b8 00 00 17 70 00 00 1f 40 00 00
+00 7b 00 00 01 00 91 00 01 00 01 00 01 00 02 00
+01 00 03 00 01 00 04 00 01 00 05 00 01 00 06 00
+01 00 07 00 01 00 08 00 01 00 09 00 01 00 0a 00
+01 00 0b 00 01 00 0c 00 01 00 0d 00 01 00 0e 00
+01 00 0f 00 01 00 10 00 01 00 11 00 01 00 12 00
+01 00 13 00 01 00 14 00 01 00 15 00 01 00 16 00
+01 00 17 00 01 00 18 00 01 00 19 00 01 00 1a 00
+01 00 1b 00 01 00 1c 00 01 00 1d 00 01 00 1e 00
+01 00 1f 00 01 00 20 00 01 00 21 00 02 00 01 00
+02 00 02 00 02 00 03 00 02 00 04 00 02 00 06 00
+02 00 07 00 02 00 08 00 02 00 0a 00 02 00 0c 00
+02 00 0d 00 02 00 0e 00 02 00 0f 00 02 00 10 00
+02 00 11 00 02 00 12 00 02 00 13 00 02 00 14 00
+02 00 15 00 03 00 01 00 03 00 02 00 03 00 03 00
+03 00 06 00 03 00 07 00 03 00 08 00 03 00 09 00
+03 00 0a 00 03 00 0b 00 03 00 0c 00 04 00 01 00
+04 00 02 00 04 00 03 00 04 00 04 00 04 00 05 00
+04 00 07 00 04 00 08 00 04 00 09 00 04 00 0a 00
+04 00 0b 00 04 00 0c 00 04 00 0d 00 04 00 0e 00
+04 00 0f 00 04 00 10 00 04 00 11 00 04 00 12 00
+04 00 13 00 04 00 14 00 06 00 01 00 06 00 02 00
+06 00 03 00 08 00 01 00 08 00 02 00 09 00 01 00
+09 00 02 00 09 00 03 00 09 00 04 00 09 00 09 00
+09 00 0a 00 09 00 0b 00 0a 00 01 00 0a 00 02 00
+0a 00 03 00 0b 00 01 00 0b 00 02 00 0b 00 03 00
+0b 00 04 00 0c 00 01 00 0c 00 02 00 0c 00 03 00
+13 00 01 00 13 00 02 00 13 00 03 00 13 00 04 00
+13 00 05 00 13 00 06 00 13 00 07 00 13 00 08 00
+13 00 09 00 13 00 0a 00 13 00 0b 00 13 00 0c 00
+13 00 0d 00 13 00 0e 00 13 00 0f 00 13 00 10 00
+13 00 11 00 13 00 12 00 13 00 13 00 13 00 14 00
+13 00 15 00 13 00 16 00 13 00 17 00 13 00 18 00
+13 00 19 00 13 00 1a 00 13 00 1b 00 13 00 1c 00
+13 00 1d 00 13 00 1e 00 13 00 1f 00 13 00 20 00
+13 00 21 00 13 00 22 00 13 00 23 00 13 00 24 00
+13 00 25 00 13 00 26 00 13 00 27 00 13 00 28 00
+15 00 01 00 15 00 02 00 15 00 03 00 02 00 06 00
+03 00 04 00 03 00 05 00 09 00 05 00 09 00 06 00
+09 00 07 00 09 00 08 00 03 00 02 00 02 00 05 00
+04 00 06 00 04 00 02 00 02 00 09 00 02 00 0b 00
+05 00 00                                       
+`;
 
 if (require.main === module) {
-  printBuffer(bufferFromWebText(exampleWebText), SNAC_01_0F);
+  printBuffer(bufferFromWebText(exSNAC_01_07), SNAC_01_07);
 }

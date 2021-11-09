@@ -57,7 +57,6 @@ export default class ICBM extends BaseService {
       const channel = payload.readUInt16BE(0);
 
       // TODO: set settings based on channel provided
-
       this.channel = {
         channel,
         messageFlags: payload.readUInt32BE(2),
@@ -65,7 +64,7 @@ export default class ICBM extends BaseService {
         maxSenderWarningLevel: payload.readUInt16BE(8),
         maxReceiverWarningLevel: payload.readUInt16BE(10),
         minimumMessageInterval: payload.readUInt16BE(12),
-        unknown: payload.readUInt16BE(14),
+        unknown: 1000, //payload.readUInt16BE(14),
       }
       console.log("ICBM set channel", this.channel);
      return;
@@ -81,10 +80,6 @@ export default class ICBM extends BaseService {
       payload.writeInt16BE(this.channel.minimumMessageInterval, 12);
       payload.writeInt16BE(this.channel.unknown, 14);
 
-      // For some reason this response crashes the client?
-      // It's identical to the channel set request the client
-      // sends earlier. Also the 3.x client sends a channel set request
-      // so early
       const resp = new FLAP(0x02, this.nextReqID,
         new SNAC(0x04, 0x05,  payload));
       this.send(resp);

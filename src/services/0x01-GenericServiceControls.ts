@@ -31,11 +31,21 @@ export default class GenericServiceControls extends BaseService {
     }
 
     if (message.payload.subtype === 0x06) { // Client ask server for rate limits info
+
+      // HACK: set rate limits for all services. I can't tell which message subtypes they support so
+      // make it set rate limits for everything under 0x21.
+      const pairs : RateGroupPair[] = [];
+      Object.values(this.communicator.services).forEach((service) => {
+        for (let i = 0; i < 0x21; i++) {
+          pairs.push(new RateGroupPair(service.service, i));
+        }
+      });
+
       const resp = new FLAP(0x02, this.nextReqID,
         SNAC.forRateClass(0x01, 0x07, [
           new Rate(
             new RateClass(1, 80, 2500, 2000, 1500, 800, 3400 /*fake*/, 6000, 0, 0),
-            new RatedServiceGroup(1, [new RateGroupPair(0x00, 0x00)])
+            new RatedServiceGroup(1, pairs),
           )
         ]))
       this.send(resp);
@@ -50,7 +60,7 @@ export default class GenericServiceControls extends BaseService {
     }
 
     if (message.payload.subtype === 0x0e) { // Client requests own online information
-      const uin = '400';  // this.communicator.user.uin;
+      const uin = this.communicator.user?.username || 'user';
       const warning = 0;
       const since = +(new Date('December 17, 1998 03:24:00'));
       const externalIP = dot2num(this.communicator.socket.remoteAddress!.split(':').pop()!);

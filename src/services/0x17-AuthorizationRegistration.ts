@@ -9,6 +9,7 @@ const { AIM_MD5_STRING, FLAGS_EMPTY } = require('../consts');
 const users : {[key: string]: User} = {
   'toof': {
     uin: '156089',
+    username: 'toof',
     password: 'foo',
     memberSince: new Date('December 17, 1998 03:24:00'),
   }
@@ -87,12 +88,18 @@ export default class AuthorizationRegistrationService extends BaseService {
         new SNAC(0x17, 0x03,  [
           TLV.forUsername(username), // username
           TLV.forBOSAddress(chatHost), // BOS address
-          TLV.forCookie(JSON.stringify({cookie: 'uwu', user: 'toof'})) // Authorization cookie
+          TLV.forCookie(JSON.stringify({cookie: 'uwu', user: users[username]})) // Authorization cookie
         ]));
 
-        this.communicator.user = Object.assign({}, users[username], {username});
+        this.communicator.user = Object.assign({username}, users[username]);
+        console.log(this.communicator.user);
 
         this.send(authResp);
+
+        // tell them to leave
+        const disconnectResp = new FLAP(4, this.nextReqID, Buffer.alloc(0));
+        this.send(disconnectResp);
+
         return;
       case 0x06: // Request md5 authkey
         const MD5AuthKeyHeader = Buffer.alloc(2, 0xFF, 'hex');
