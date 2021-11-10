@@ -38,20 +38,20 @@ const server = net.createServer((socket) => {
   const comm = new Communicator(socket);
   const services = [
     new GenericServiceControls(comm),
-    new LocationServices(comm),
-    new BuddyListManagement(comm),
+    // new LocationServices(comm),
+    // new BuddyListManagement(comm),
     new ICBM(comm),
-    new Invitation(comm),
-    new Administration(comm),
-    new Popups(comm),
-    new PrivacyManagement(comm),
+    // new Invitation(comm),
+    // new Administration(comm),
+    // new Popups(comm),
+    // new PrivacyManagement(comm),
     new UserLookup(comm),
-    new UsageStats(comm),
+    // new UsageStats(comm),
     // new ChatNavigation(comm),
     // new Chat(comm),
     // new DirectorySearch(comm),
-    new ServerStoredBuddyIcons(comm),
-    new SSI(comm),
+    // new ServerStoredBuddyIcons(comm),
+    // new SSI(comm),
   ];
   comm.registerServices(services);
   comm.startListening();

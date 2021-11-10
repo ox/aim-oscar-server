@@ -9,25 +9,12 @@ export default class GenericServiceControls extends BaseService {
   private allowViewMemberSince = false;
 
   constructor(communicator : Communicator) {
-    super({service: 0x01, version: 0x03}, communicator)
+    super({service: 0x01, version: 0x03}, [0x06, 0x0e, 0x14, 0x17], communicator)
   }
 
   override handleMessage(message : FLAP) {
     if (!(message.payload instanceof SNAC)) {
       throw new Error('Require SNAC');
-    }
-
-    if (message.payload.subtype === 0x14) {
-      /*
-        Client setting privacy settings
-          Bit 1 - Allows other AIM users to see how long you've been idle.
-          Bit 2 - Allows other AIM users to see how long you've been a member.
-      */
-     const mask = (message.payload.payload as Buffer).readUInt32BE();
-     this.allowViewIdle = (mask & 0x01) > 0;
-     this.allowViewMemberSince = (mask & 0x02) > 0;
-     console.log('allowViewIdle:', this.allowViewIdle, 'allowViewMemberSince', this.allowViewMemberSince);
-     return;
     }
 
     if (message.payload.subtype === 0x06) { // Client ask server for rate limits info
@@ -36,8 +23,9 @@ export default class GenericServiceControls extends BaseService {
       // make it set rate limits for everything under 0x21.
       const pairs : RateGroupPair[] = [];
       Object.values(this.communicator.services).forEach((service) => {
-        for (let i = 0; i < 0x21; i++) {
-          pairs.push(new RateGroupPair(service.service, i));
+        // for (let subtype of service.supportedSubtypes) {
+        for (let subtype = 0; subtype < 0x21; subtype++) {
+          pairs.push(new RateGroupPair(service.service, subtype));
         }
       });
 
@@ -47,14 +35,14 @@ export default class GenericServiceControls extends BaseService {
             new RateClass(1, 80, 2500, 2000, 1500, 800, 3400 /*fake*/, 6000, 0, 0),
             new RatedServiceGroup(1, pairs),
           )
-        ]))
+        ]));
       this.send(resp);
 
       const motd = new FLAP(0x02, this.nextReqID,
         new SNAC(0x01, 0x13,  Buffer.concat([
           word(0x0004),
           (new TLV(0x0B, Buffer.from("Hello world!"))).toBuffer(),
-        ])))
+        ])));
       this.send(motd);
       return;
     }
@@ -100,6 +88,19 @@ export default class GenericServiceControls extends BaseService {
 
       this.send(resp);
       return;
+    }
+
+    if (message.payload.subtype === 0x14) {
+      /*
+        Client setting privacy settings
+          Bit 1 - Allows other AIM users to see how long you've been idle.
+          Bit 2 - Allows other AIM users to see how long you've been a member.
+      */
+     const mask = (message.payload.payload as Buffer).readUInt32BE();
+     this.allowViewIdle = (mask & 0x01) > 0;
+     this.allowViewMemberSince = (mask & 0x02) > 0;
+     console.log('allowViewIdle:', this.allowViewIdle, 'allowViewMemberSince', this.allowViewMemberSince);
+     return;
     }
 
     if (message.payload.subtype === 0x17) {

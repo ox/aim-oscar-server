@@ -16,6 +16,12 @@ export function dword(num : number) : Buffer {
   return buf;
 }
 
+export function qword(num : number) : Buffer {
+  const buf = Buffer.alloc(8, 0x00);
+  buf.writeUInt32BE(num);
+  return buf;
+}
+
 /**
  * Converts a string IP address to it's number representation.
  * From: https://stackoverflow.com/a/8105740

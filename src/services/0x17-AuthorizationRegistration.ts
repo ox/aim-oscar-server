@@ -19,7 +19,7 @@ export default class AuthorizationRegistrationService extends BaseService {
   private cipher : string;
 
   constructor(communicator : Communicator) {
-    super({ service: 0x17, version: 0x01 }, communicator);
+    super({ service: 0x17, version: 0x01 }, [0x02, 0x06], communicator);
     this.cipher = "HARDY";
   }
 

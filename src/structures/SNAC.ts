@@ -90,23 +90,12 @@ export class SNAC {
         service === 0x01 && subtype === 0x08 ||
         service === 0x01 && subtype === 0x0e ||
         service === 0x04 && subtype === 0x02 ||
-        service === 0x09 && subtype === 0x04) {
+        service === 0x09 && subtype === 0x04 ||
+        service === 0x0a && subtype === 0x02 ||
+        service === 0x04 && subtype === 0x06) {
       payload = buf.slice(10, 10 + payloadLength);
     } else {
-      payload = [];
-      // Try to parse TLVs
-      let payloadIdx = 10;
-      let cb = 0, cbLimit = 20; //circuit breaker
-      while (payloadIdx < payloadLength && cb < cbLimit) {
-        const tlv = TLV.fromBuffer(buf.slice(payloadIdx));
-        payload.push(tlv);
-        payloadIdx += tlv.length + 4; // 4 bytes for TLV type + payload length
-        cb++;
-      }
-      if (cb === cbLimit) {
-        console.error('Application error, cb limit reached');
-        process.exit(1);
-      }
+      payload = TLV.fromBufferBlob(buf.slice(10));
     }
 
     return new SNAC(service, subtype, payload, requestID, flags);

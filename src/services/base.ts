@@ -10,10 +10,11 @@ export default abstract class BaseService {
   public service : number;
   public version : number;
 
-  constructor({service, version} : ServiceFamilyVersion, public communicator : Communicator) {
+  constructor({service, version} : ServiceFamilyVersion, public supportedSubtypes : number[], public communicator : Communicator) {
     this.service = service;
     this.version = version;
     this.communicator = communicator;
+    this.supportedSubtypes = supportedSubtypes;
   }
 
   send(message : FLAP) {

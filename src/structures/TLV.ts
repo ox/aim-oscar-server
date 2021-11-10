@@ -16,11 +16,37 @@ export class TLV {
   }
 
   static fromBuffer(buf : Buffer) {
-    const type = buf.slice(0, 2).readInt16BE(0) as TLVType;
+    const type = buf.slice(0, 2).readInt16BE(0);
     const len = buf.slice(2, 4).readInt16BE(0)
     const payload = buf.slice(4, 4 + len);
 
     return new TLV(type, payload);
+  }
+
+  /**
+   * Extract all TLVs from a given Buffer
+   * @param buf Buffer that contains multiple TLVs
+   * @param payloadLength Total stated length of the payload
+   * @returns all TLVs found in the Buffer
+   */
+  static fromBufferBlob(buf : Buffer) : TLV[] {
+    const tlvs : TLV[] = [];
+
+    // Try to parse TLVs
+    let payloadIdx = 0;
+    let cb = 0, cbLimit = 20; //circuit breaker
+    while (payloadIdx < buf.length && cb < cbLimit) {
+      const tlv = TLV.fromBuffer(buf.slice(payloadIdx));
+      tlvs.push(tlv);
+      payloadIdx += tlv.length + 4; // 4 bytes for TLV type + payload length
+      cb++;
+    }
+    if (cb === cbLimit) {
+      console.error('Application error, cb limit reached');
+      process.exit(1);
+    }
+
+    return tlvs;
   }
 
   static forUsername(username : string) : TLV {
@@ -47,7 +73,7 @@ export class TLV {
     return new TLV(0x06, Buffer.concat([varbuf, statbuf]));
   }
 
-  constructor(public type : TLVType, public payload : Buffer) {
+  constructor(public type : number, public payload : Buffer) {
     this.type = type;
     this.payload = payload;
   }

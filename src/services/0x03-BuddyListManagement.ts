@@ -7,7 +7,7 @@ import { word } from '../structures/bytes';
 
 export default class BuddyListManagement extends BaseService {
   constructor(communicator : Communicator) {
-    super({service: 0x03, version: 0x01}, communicator)
+    super({service: 0x03, version: 0x01}, [0x02], communicator)
   }
 
   override handleMessage(message : FLAP) {

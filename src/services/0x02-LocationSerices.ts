@@ -7,7 +7,7 @@ import {  USER_STATUS, USER_STATUS_VARIOUS } from '../consts';
 
 export default class LocationServices extends BaseService {
   constructor(communicator : Communicator) {
-    super({service: 0x02, version: 0x01}, communicator)
+    super({service: 0x02, version: 0x01}, [0x02, 0x04], communicator)
   }
 
   override handleMessage(message : FLAP) {

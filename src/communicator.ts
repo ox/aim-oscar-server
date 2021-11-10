@@ -37,8 +37,7 @@ export default class Communicator {
           this.handleMessage(flap);
           console.log('-----------------------DATA');
         } catch (e) {
-          // Couldn't make a FLAP
-          break;
+          console.error("Error handling message:", e);
         }
       }
     });

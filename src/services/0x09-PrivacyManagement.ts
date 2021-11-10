@@ -10,7 +10,7 @@ export default class PrivacyManagement extends BaseService {
   private permissionMask: number = 0xffff; // everyone
 
   constructor(communicator : Communicator) {
-    super({service: 0x09, version: 0x01}, communicator)
+    super({service: 0x09, version: 0x01}, [0x02, 0x04], communicator)
   }
 
   override handleMessage(message : FLAP) {
