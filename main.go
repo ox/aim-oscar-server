@@ -109,14 +109,17 @@ func handleMessage(ctx context.Context, buf []byte) {
 		return
 	}
 
+	type FLAP struct {
+		Channel        uint8
+		SequenceNumber uint16
+		DataLength     uint16
+	}
+
+	flap := FLAP{}
+	panicIfError(binary.Read(messageBuf, binary.BigEndian, &flap))
+
 	// Start parsing FLAP header
-	channel := mustReadNBytes(messageBuf, 1)[0]
-	log.Println("Message for channel: ", channel)
-
-	datagramSeqNum := mustReadNBytes(messageBuf, 2)
-	log.Println("Datagram Sequence Number: ", binary.BigEndian.Uint16(datagramSeqNum))
-
-	dataLength := mustReadNBytes(messageBuf, 2)
-	log.Println("Data Length: ", binary.BigEndian.Uint16(dataLength))
-
+	log.Println("Message for channel: ", flap.Channel)
+	log.Println("Datagram Sequence Number: ", flap.SequenceNumber)
+	log.Println("Data Length: ", flap.DataLength)
 }

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -41,4 +42,8 @@ func mustReadNBytes(buf *bytes.Buffer, n int) []byte {
 	res, err := readNBytes(buf, n)
 	panicIfError(err)
 	return res
+}
+
+func mustRead(buf *bytes.Buffer, dest interface{}) {
+	panicIfError(binary.Read(buf, binary.BigEndian, dest))
 }
