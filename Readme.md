@@ -6,5 +6,7 @@ Run your own AIM chat server, managing users and groups. Hook up a vintage clien
 
 - [x] Accept and start negotiating a connection with a client
 - [x] Perform username/password authentication
-- [ ] Set up basic services
+- [x] Set up basic services
+  - [ ] Online/offline status for users
+  - [ ] Send IM back and forth
 - [ ] The rest of the owl

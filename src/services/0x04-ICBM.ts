@@ -133,6 +133,8 @@ export default class ICBM extends BaseService {
         const messageText = messageTLV.payload.slice(startOfMessageFragment + 8, startOfMessageFragment + 8 + lengthOfMessageText).toString();
         console.log('The user said:', messageText);
 
+        // The client usually wants a response that the server got the message. It checks that the message
+        // back has the same message ID that was sent and the user it was sent to.
         if (wantsAck) {
           const sender = this.communicator.user?.username || "";
           const msgIdBuffer = Buffer.alloc(32);
