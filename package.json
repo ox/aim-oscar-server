@@ -5,6 +5,7 @@
   "license": "MIT",
   "scripts": {
     "dev:tsc": "tsc --watch",
+    "dev:nodemon:auth-go": "nodemon --watch ./ -e go --delay 200ms --exec 'go run *.go || exit 1' --signal SIGTERM",
     "dev:nodemon:auth": "nodemon --watch ./dist --delay 200ms dist/src/main-auth.js",
     "dev:nodemon:chat": "nodemon --watch ./dist --delay 200ms dist/src/main-chat.js",
     "start": "tsc && node ./dist/index.js"
