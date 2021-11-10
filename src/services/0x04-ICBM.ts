@@ -148,6 +148,9 @@ export default class ICBM extends BaseService {
           const ackResp = new FLAP(2, this.nextReqID, new SNAC(0x04, 0x0c, ackPayload));
           this.send(ackResp);
         }
+
+        // TODO: find the connection that the receiver is connected to and send them the message
+        // this is the rest of the owl for this part
       }
     }
   }
