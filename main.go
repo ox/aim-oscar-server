@@ -1,9 +1,7 @@
 package main
 
 import (
-	"bytes"
 	"context"
-	"encoding/binary"
 	"fmt"
 	"io"
 	"log"
@@ -19,21 +17,10 @@ const (
 	SRV_ADDRESS = SRV_HOST + ":" + SRV_PORT
 )
 
-type Session struct {
-	Conn          net.Conn
-	GreetedClient bool
-}
+var services = make(map[uint16]Service)
 
-func NewSession(conn net.Conn) *Session {
-	return &Session{
-		Conn:          conn,
-		GreetedClient: false,
-	}
-}
-
-func (s *Session) Send(bytes []byte) {
-	fmt.Printf("-> %v\n%s\n\n", s.Conn.RemoteAddr(), prettyBytes(bytes))
-	s.Conn.Write(bytes)
+func init() {
+	services[0x17] = &AuthorizationRegistrationService{}
 }
 
 func main() {
@@ -69,7 +56,9 @@ func main() {
 
 func handleTCPConnection(ctx context.Context, conn net.Conn) {
 	defer (func() {
-		recover()
+		if r := recover(); r != nil {
+			log.Println("Error handling message: ", r.(error).Error())
+		}
 		conn.Close()
 		log.Printf("Closed connection to %v", conn.RemoteAddr())
 	})()
@@ -79,8 +68,9 @@ func handleTCPConnection(ctx context.Context, conn net.Conn) {
 		session := ctx.Value("session").(*Session)
 		if !session.GreetedClient {
 			// send a hello
-			hello := []byte{0x2a, 1, 0, 0, 0, 4, 0, 0, 0, 1}
-			session.Send(hello)
+			hello := NewFLAP(ctx, 1, []byte{0, 0, 0, 1})
+			err := session.Send(hello)
+			panicIfError(err)
 			session.GreetedClient = true
 		}
 
@@ -100,26 +90,18 @@ func handleTCPConnection(ctx context.Context, conn net.Conn) {
 }
 
 func handleMessage(ctx context.Context, buf []byte) {
-	messageBuf := bytes.NewBuffer(buf)
+	flap := &FLAP{}
+	flap.UnmarshalBinary(buf)
 
-	start, err := messageBuf.ReadByte()
-	panicIfError(err)
-	if start != 0x2a {
-		log.Println("FLAP message missing leading 0x2a")
-		return
+	if flap.Header.Channel == 1 {
+
+	} else if flap.Header.Channel == 2 {
+		snac := &SNAC{}
+		err := snac.UnmarshalBinary(flap.Data)
+		panicIfError(err)
+
+		if service, ok := services[snac.Header.Family]; ok {
+			service.HandleSNAC(ctx, snac)
+		}
 	}
-
-	type FLAP struct {
-		Channel        uint8
-		SequenceNumber uint16
-		DataLength     uint16
-	}
-
-	flap := FLAP{}
-	panicIfError(binary.Read(messageBuf, binary.BigEndian, &flap))
-
-	// Start parsing FLAP header
-	log.Println("Message for channel: ", flap.Channel)
-	log.Println("Datagram Sequence Number: ", flap.SequenceNumber)
-	log.Println("Data Length: ", flap.DataLength)
 }
