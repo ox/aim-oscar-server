@@ -1,11 +1,7 @@
 package main
 
 import (
-	"bytes"
-	"encoding/binary"
 	"encoding/hex"
-	"fmt"
-	"io"
 )
 
 func prettyBytes(bytes []byte) string {
@@ -22,28 +18,8 @@ func prettyBytes(bytes []byte) string {
 	return res
 }
 
-func printBytes(bytes []byte) {
-	fmt.Printf("%s\n", prettyBytes(bytes))
-}
-
 func panicIfError(err error) {
 	if err != nil {
 		panic(err)
 	}
-}
-
-func readNBytes(buf *bytes.Buffer, n int) ([]byte, error) {
-	res := make([]byte, n)
-	_, err := io.ReadFull(buf, res)
-	return res, err
-}
-
-func mustReadNBytes(buf *bytes.Buffer, n int) []byte {
-	res, err := readNBytes(buf, n)
-	panicIfError(err)
-	return res
-}
-
-func mustRead(buf *bytes.Buffer, dest interface{}) {
-	panicIfError(binary.Read(buf, binary.BigEndian, dest))
 }

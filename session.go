@@ -1,9 +1,20 @@
 package main
 
 import (
+	"context"
 	"encoding"
 	"fmt"
 	"net"
+)
+
+type sessionKey string
+
+func (s sessionKey) String() string {
+	return "oscar-" + string(s)
+}
+
+var (
+	currentSession = sessionKey("session")
 )
 
 type Session struct {
@@ -18,6 +29,19 @@ func NewSession(conn net.Conn) *Session {
 		SequenceNumber: 0,
 		GreetedClient:  false,
 	}
+}
+
+func NewContextWithSession(ctx context.Context, conn net.Conn) context.Context {
+	session := NewSession(conn)
+	return context.WithValue(ctx, currentSession, session)
+}
+
+func CurrentSession(ctx context.Context) (session *Session, err error) {
+	session, ok := ctx.Value(currentSession).(*Session)
+	if !ok {
+		return nil, fmt.Errorf("no session in context")
+	}
+	return
 }
 
 func (s *Session) Send(m encoding.BinaryMarshaler) error {

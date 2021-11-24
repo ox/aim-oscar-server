@@ -9,6 +9,8 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+
+	"github.com/ghostiam/binstruct"
 )
 
 const (
@@ -47,7 +49,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		ctx := context.WithValue(context.Background(), "session", NewSession(conn))
+		ctx := NewContextWithSession(context.Background(), conn)
 		log.Printf("Connection from %v", conn.RemoteAddr())
 
 		go handleTCPConnection(ctx, conn)
@@ -65,7 +67,8 @@ func handleTCPConnection(ctx context.Context, conn net.Conn) {
 
 	buf := make([]byte, 1024)
 	for {
-		session := ctx.Value("session").(*Session)
+		session, err := CurrentSession(ctx)
+		panicIfError(err)
 		if !session.GreetedClient {
 			// send a hello
 			hello := NewFLAP(ctx, 1, []byte{0, 0, 0, 1})
@@ -85,17 +88,18 @@ func handleTCPConnection(ctx context.Context, conn net.Conn) {
 		}
 
 		fmt.Printf("%v ->\n%s\n\n", conn.RemoteAddr(), prettyBytes(buf[:n]))
-		handleMessage(ctx, buf[:n])
+
+		flap := &FLAP{}
+		binstruct.UnmarshalBE(buf[:n], flap)
+
+		handleMessage(ctx, flap)
 	}
 }
 
-func handleMessage(ctx context.Context, buf []byte) {
-	flap := &FLAP{}
-	flap.UnmarshalBinary(buf)
+func handleMessage(ctx context.Context, flap *FLAP) {
+	if flap.Channel == 1 {
 
-	if flap.Header.Channel == 1 {
-
-	} else if flap.Header.Channel == 2 {
+	} else if flap.Channel == 2 {
 		snac := &SNAC{}
 		err := snac.UnmarshalBinary(flap.Data)
 		panicIfError(err)
