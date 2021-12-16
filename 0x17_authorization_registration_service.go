@@ -1,9 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"crypto/md5"
 	"crypto/rand"
 	"encoding/base32"
+	"io"
 
 	"github.com/pkg/errors"
 	"github.com/uptrace/bun"
@@ -12,6 +15,7 @@ import (
 )
 
 const CIPHER_LENGTH = 64
+const AIM_MD5_STRING = "AOL Instant Messenger (SM)"
 
 type AuthorizationRegistrationService struct{}
 
@@ -72,7 +76,7 @@ func (a *AuthorizationRegistrationService) HandleSNAC(db *bun.DB, session *Sessi
 
 		usernameTLV := FindTLV(tlvs, 1)
 		if usernameTLV == nil {
-			return errors.New("missing username TLV")
+			return errors.New("missing username TLV 0x1")
 		}
 
 		username := string(usernameTLV.Data)
@@ -91,10 +95,43 @@ func (a *AuthorizationRegistrationService) HandleSNAC(db *bun.DB, session *Sessi
 			return session.Send(resp)
 		}
 
-		snac := NewSNAC(0x17, 0x03)
-		resp := NewFLAP(session, 2)
-		resp.Data.WriteBinary(snac)
-		return session.Send(resp)
+		passwordHashTLV := FindTLV(tlvs, 0x25)
+		if passwordHashTLV == nil {
+			return errors.New("missing password hash TLV 0x25")
+		}
+
+		h := md5.New()
+		io.WriteString(h, user.Cipher)
+		io.WriteString(h, user.Password)
+		io.WriteString(h, AIM_MD5_STRING)
+		expectedPasswordHash := h.Sum(nil)
+
+		if !bytes.Equal(expectedPasswordHash, passwordHashTLV.Data) {
+			// Tell the client this was a bad password
+			badPasswordSnac := NewSNAC(0x17, 0x03)
+			badPasswordSnac.Data.WriteBinary(usernameTLV)
+			badPasswordSnac.Data.WriteBinary(NewTLV(0x08, []byte{0, 4}))
+			badPasswordFlap := NewFLAP(session, 2)
+			badPasswordFlap.Data.WriteBinary(badPasswordSnac)
+			session.Send(badPasswordFlap)
+
+			// Tell tem to leave
+			discoFlap := NewFLAP(session, 4)
+			return session.Send(discoFlap)
+		}
+
+		// Send BOS response + cookie
+		authSnac := NewSNAC(0x17, 0x3)
+		authSnac.Data.WriteBinary(usernameTLV)
+		authSnac.Data.WriteBinary(NewTLV(0x5, []byte("10.0.1.2:5191")))
+		authSnac.Data.WriteBinary(NewTLV(0x6, []byte(`{"hello": "uwu"}`)))
+		authFlap := NewFLAP(session, 2)
+		authFlap.Data.WriteBinary(authSnac)
+		session.Send(authFlap)
+
+		// Tell tem to leave
+		discoFlap := NewFLAP(session, 4)
+		return session.Send(discoFlap)
 	}
 
 	return nil

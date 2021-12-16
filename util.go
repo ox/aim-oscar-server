@@ -38,7 +38,7 @@ func prettyBytes(bytes []byte) string {
 			if err != nil || (n < 32 || n > 126) {
 				res += "."
 			} else {
-				res += fmt.Sprint(n)
+				res += string(n)
 			}
 		}
 		res += "|\n"
