@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"log"
@@ -10,7 +9,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/ghostiam/binstruct"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -20,8 +19,11 @@ const (
 )
 
 var services = make(map[uint16]Service)
+var db *DB = nil
 
 func init() {
+	db = &DB{}
+	db.Init()
 	services[0x17] = &AuthorizationRegistrationService{}
 }
 
@@ -49,29 +51,27 @@ func main() {
 			os.Exit(1)
 		}
 
-		ctx := NewContextWithSession(context.Background(), conn)
+		session := NewSession(conn)
 		log.Printf("Connection from %v", conn.RemoteAddr())
 
-		go handleTCPConnection(ctx, conn)
+		go handleTCPConnection(session, conn)
 	}
 }
 
-func handleTCPConnection(ctx context.Context, conn net.Conn) {
-	defer (func() {
-		if r := recover(); r != nil {
-			log.Println("Error handling message: ", r.(error).Error())
-		}
-		conn.Close()
-		log.Printf("Closed connection to %v", conn.RemoteAddr())
-	})()
+func handleTCPConnection(session *Session, conn net.Conn) {
+	// defer (func() {
+	// 	if err := recover(); err != nil {
+	// 		log.Printf("Error handling message: %+v\n", err.(error))
+	// 	}
+	// 	conn.Close()
+	// 	log.Printf("Closed connection to %v", conn.RemoteAddr())
+	// })()
 
 	buf := make([]byte, 1024)
 	for {
-		session, err := CurrentSession(ctx)
-		panicIfError(err)
 		if !session.GreetedClient {
 			// send a hello
-			hello := NewFLAP(ctx, 1, []byte{0, 0, 0, 1})
+			hello := NewFLAP(session, 1, []byte{0, 0, 0, 1})
 			err := session.Send(hello)
 			panicIfError(err)
 			session.GreetedClient = true
@@ -87,25 +87,47 @@ func handleTCPConnection(ctx context.Context, conn net.Conn) {
 			return
 		}
 
-		fmt.Printf("%v ->\n%s\n\n", conn.RemoteAddr(), prettyBytes(buf[:n]))
+		// Try to parse all of the FLAPs in the buffer if we have enough bytes to
+		// fill a FLAP header
+		for len(buf) >= 6 && buf[0] == 0x2a {
+			dataLength := Word(buf[4:6])
+			flapLength := int(dataLength) + 6
+			if len(buf) < flapLength {
+				log.Printf("not enough data, only %d bytes\n", len(buf))
+				break
+			}
 
-		flap := &FLAP{}
-		binstruct.UnmarshalBE(buf[:n], flap)
-
-		handleMessage(ctx, flap)
+			flap := &FLAP{}
+			if err := flap.UnmarshalBinary(buf[:flapLength]); err != nil {
+				panicIfError(errors.Wrap(err, "could not unmarshal FLAP"))
+			}
+			buf = buf[flapLength:]
+			fmt.Printf("%v ->\n%+v\n", conn.RemoteAddr(), flap)
+			handleMessage(session, flap)
+		}
 	}
 }
 
-func handleMessage(ctx context.Context, flap *FLAP) {
-	if flap.Channel == 1 {
+func handleMessage(session *Session, flap *FLAP) {
+	if flap.Header.Channel == 1 {
 
-	} else if flap.Channel == 2 {
+	} else if flap.Header.Channel == 2 {
 		snac := &SNAC{}
 		err := snac.UnmarshalBinary(flap.Data)
 		panicIfError(err)
 
+		fmt.Printf("%+v\n", snac)
+		if tlvs, err := UnmarshalTLVs(snac.Data); err == nil {
+			for _, tlv := range tlvs {
+				fmt.Printf("%+v\n", tlv)
+			}
+		} else {
+			fmt.Printf("%s\n\n", prettyBytes(snac.Data))
+		}
+
 		if service, ok := services[snac.Header.Family]; ok {
-			service.HandleSNAC(ctx, snac)
+			err = service.HandleSNAC(session, snac)
+			panicIfError(err)
 		}
 	}
 }

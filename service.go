@@ -1,9 +1,5 @@
 package main
 
-import (
-	"context"
-)
-
 type Service interface {
-	HandleSNAC(context.Context, *SNAC)
+	HandleSNAC(*Session, *SNAC) error
 }

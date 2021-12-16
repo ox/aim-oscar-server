@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"encoding"
 	"encoding/binary"
 	"fmt"
@@ -22,8 +21,7 @@ type FLAP struct {
 	Data   []byte
 }
 
-func NewFLAP(ctx context.Context, channel uint8, data []byte) *FLAP {
-	session := ctx.Value("session").(*Session)
+func NewFLAP(session *Session, channel uint8, data []byte) *FLAP {
 	session.SequenceNumber += 1
 
 	return &FLAP{
@@ -34,6 +32,21 @@ func NewFLAP(ctx context.Context, channel uint8, data []byte) *FLAP {
 		},
 		Data: data,
 	}
+}
+
+func (f *FLAP) MarshalBinary() ([]byte, error) {
+	var buf bytes.Buffer
+	buf.WriteByte(0x2a)
+	binary.Write(&buf, binary.BigEndian, f.Header)
+	n, err := buf.Write(f.Data)
+	if n != int(f.Header.DataLength) {
+		return nil, fmt.Errorf("needed to write %d bytes to buffer but wrote %d", f.Header.DataLength, n)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), nil
 }
 
 func (f *FLAP) UnmarshalBinary(data []byte) error {
@@ -54,17 +67,10 @@ func (f *FLAP) UnmarshalBinary(data []byte) error {
 	return nil
 }
 
-func (f *FLAP) MarshalBinary() ([]byte, error) {
-	var buf bytes.Buffer
-	buf.WriteByte(0x2a)
-	binary.Write(&buf, binary.BigEndian, f.Header)
-	n, err := buf.Write(f.Data)
-	if n != int(f.Header.DataLength) {
-		return nil, fmt.Errorf("needed to write %d bytes to buffer but wrote %d", f.Header.DataLength, n)
-	}
-	if err != nil {
-		return nil, err
-	}
+func (f *FLAP) Len() int {
+	return 6 + int(f.Header.DataLength)
+}
 
-	return buf.Bytes(), nil
+func (f *FLAP) String() string {
+	return fmt.Sprintf("FLAP(CH:%d, SEQ:%d):\n%s", f.Header.Channel, f.Header.SequenceNumber, prettyBytes(f.Data))
 }

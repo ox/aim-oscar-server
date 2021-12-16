@@ -1,22 +1,35 @@
 package main
 
 import (
-	"context"
-	"fmt"
+	"errors"
 )
-
-var cipher = "hey wassup"
 
 type AuthorizationRegistrationService struct{}
 
-func (a *AuthorizationRegistrationService) HandleSNAC(ctx context.Context, snac *SNAC) {
+func (a *AuthorizationRegistrationService) HandleSNAC(session *Session, snac *SNAC) error {
+	switch snac.Header.Subtype {
 	// Request MD5 Auth Key
-	if snac.Header.Subtype == 0x06 {
-		fmt.Println("damn it's 0x06")
-		// cipherData := ByteString(cipher) // []byte
+	case 0x06:
+		tlvs, err := UnmarshalTLVs(snac.Data)
+		panicIfError(err)
 
-		// snac := NewSNAC(0x17, 0x07, cipherData)
+		usernameTLV := FindTLV(tlvs, 1)
+		if usernameTLV == nil {
+			return errors.New("missing username TLV")
+		}
 
-		// resp := NewFLAP(2, snac)
+		// Create cipher for this user
+		cipher := "howdy"
+		db.Set("cipher-"+string(usernameTLV.Data), cipher)
+		cipherData := []byte(cipher)
+
+		snac := NewSNAC(0x17, 0x07, cipherData)
+		snacBytes, err := snac.MarshalBinary()
+		panicIfError(err)
+
+		resp := NewFLAP(session, 2, snacBytes)
+		return session.Send(resp)
 	}
+
+	return nil
 }

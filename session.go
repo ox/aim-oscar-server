@@ -5,6 +5,8 @@ import (
 	"encoding"
 	"fmt"
 	"net"
+
+	"github.com/pkg/errors"
 )
 
 type sessionKey string
@@ -37,20 +39,20 @@ func NewContextWithSession(ctx context.Context, conn net.Conn) context.Context {
 }
 
 func CurrentSession(ctx context.Context) (session *Session, err error) {
-	session, ok := ctx.Value(currentSession).(*Session)
-	if !ok {
-		return nil, fmt.Errorf("no session in context")
+	s := ctx.Value(currentSession)
+	if s == nil {
+		return nil, errors.New("no session in context")
 	}
-	return
+	return s.(*Session), nil
 }
 
 func (s *Session) Send(m encoding.BinaryMarshaler) error {
 	bytes, err := m.MarshalBinary()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "could not marshal message")
 	}
 
 	fmt.Printf("-> %v\n%s\n\n", s.Conn.RemoteAddr(), prettyBytes(bytes))
 	_, err = s.Conn.Write(bytes)
-	return err
+	return errors.Wrap(err, "could not write to client connection")
 }

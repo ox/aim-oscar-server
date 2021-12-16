@@ -23,3 +23,13 @@ func panicIfError(err error) {
 		panic(err)
 	}
 }
+
+func Word(b []byte) uint16 {
+	var _ = b[1]
+	return uint16(b[1]) | uint16(b[0])<<8
+}
+
+func DWord(b []byte) uint32 {
+	var _ = b[3]
+	return uint32(b[3]) | uint32(b[2])<<8 | uint32(b[1])<<16 | uint32(b[0])<<24
+}
