@@ -1,0 +1,4 @@
+- model: User
+  rows:
+    - username: toof
+      password: bar

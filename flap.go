@@ -18,27 +18,28 @@ type FLAPHeader struct {
 
 type FLAP struct {
 	Header FLAPHeader
-	Data   []byte
+	Data   Buffer
 }
 
-func NewFLAP(session *Session, channel uint8, data []byte) *FLAP {
+func NewFLAP(session *Session, channel uint8) *FLAP {
 	session.SequenceNumber += 1
 
 	return &FLAP{
 		Header: FLAPHeader{
 			Channel:        channel,
 			SequenceNumber: uint16(session.SequenceNumber),
-			DataLength:     uint16(len(data)),
 		},
-		Data: data,
 	}
 }
 
 func (f *FLAP) MarshalBinary() ([]byte, error) {
-	var buf bytes.Buffer
-	buf.WriteByte(0x2a)
+	buf := Buffer{}
+	buf.WriteUint8(0x2a)
+
+	f.Header.DataLength = uint16(len(f.Data.Bytes()))
+
 	binary.Write(&buf, binary.BigEndian, f.Header)
-	n, err := buf.Write(f.Data)
+	n, err := buf.Write(f.Data.Bytes())
 	if n != int(f.Header.DataLength) {
 		return nil, fmt.Errorf("needed to write %d bytes to buffer but wrote %d", f.Header.DataLength, n)
 	}
@@ -63,7 +64,7 @@ func (f *FLAP) UnmarshalBinary(data []byte) error {
 		return err
 	}
 
-	f.Data = buf.Bytes()
+	f.Data.Write(buf.Bytes())
 	return nil
 }
 
@@ -72,5 +73,5 @@ func (f *FLAP) Len() int {
 }
 
 func (f *FLAP) String() string {
-	return fmt.Sprintf("FLAP(CH:%d, SEQ:%d):\n%s", f.Header.Channel, f.Header.SequenceNumber, prettyBytes(f.Data))
+	return fmt.Sprintf("FLAP(CH:%d, SEQ:%d):\n%s", f.Header.Channel, f.Header.SequenceNumber, prettyBytes(f.Data.Bytes()))
 }

@@ -1,6 +1,9 @@
 package main
 
 import (
+	"aim-oscar/models"
+	"context"
+	"database/sql"
 	"fmt"
 	"io"
 	"log"
@@ -10,6 +13,11 @@ import (
 	"syscall"
 
 	"github.com/pkg/errors"
+	"github.com/uptrace/bun"
+	"github.com/uptrace/bun/dbfixture"
+	"github.com/uptrace/bun/dialect/sqlitedialect"
+	"github.com/uptrace/bun/driver/sqliteshim"
+	"github.com/uptrace/bun/extra/bundebug"
 )
 
 const (
@@ -19,15 +27,30 @@ const (
 )
 
 var services = make(map[uint16]Service)
-var db *DB = nil
 
 func init() {
-	db = &DB{}
-	db.Init()
 	services[0x17] = &AuthorizationRegistrationService{}
 }
 
 func main() {
+	// Set up the DB
+	sqldb, err := sql.Open(sqliteshim.ShimName, "file::memory:?cache=shared")
+	if err != nil {
+		panic(err)
+	}
+	db := bun.NewDB(sqldb, sqlitedialect.New())
+
+	// Print all queries to stdout.
+	db.AddQueryHook(bundebug.NewQueryHook(bundebug.WithVerbose(true)))
+
+	db.RegisterModel((*models.User)(nil))
+
+	fixture := dbfixture.New(db, dbfixture.WithRecreateTables())
+	err = fixture.Load(context.Background(), os.DirFS("models"), "fixtures.yml")
+	if err != nil {
+		panic(err)
+	}
+
 	listener, err := net.Listen("tcp", SRV_ADDRESS)
 	if err != nil {
 		fmt.Println("Error listening: ", err.Error())
@@ -54,11 +77,11 @@ func main() {
 		session := NewSession(conn)
 		log.Printf("Connection from %v", conn.RemoteAddr())
 
-		go handleTCPConnection(session, conn)
+		go handleTCPConnection(db, session, conn)
 	}
 }
 
-func handleTCPConnection(session *Session, conn net.Conn) {
+func handleTCPConnection(db *bun.DB, session *Session, conn net.Conn) {
 	// defer (func() {
 	// 	if err := recover(); err != nil {
 	// 		log.Printf("Error handling message: %+v\n", err.(error))
@@ -71,7 +94,8 @@ func handleTCPConnection(session *Session, conn net.Conn) {
 	for {
 		if !session.GreetedClient {
 			// send a hello
-			hello := NewFLAP(session, 1, []byte{0, 0, 0, 1})
+			hello := NewFLAP(session, 1)
+			hello.Data.Write([]byte{0, 0, 0, 1})
 			err := session.Send(hello)
 			panicIfError(err)
 			session.GreetedClient = true
@@ -103,30 +127,30 @@ func handleTCPConnection(session *Session, conn net.Conn) {
 			}
 			buf = buf[flapLength:]
 			fmt.Printf("%v ->\n%+v\n", conn.RemoteAddr(), flap)
-			handleMessage(session, flap)
+			handleMessage(db, session, flap)
 		}
 	}
 }
 
-func handleMessage(session *Session, flap *FLAP) {
+func handleMessage(db *bun.DB, session *Session, flap *FLAP) {
 	if flap.Header.Channel == 1 {
 
 	} else if flap.Header.Channel == 2 {
 		snac := &SNAC{}
-		err := snac.UnmarshalBinary(flap.Data)
+		err := snac.UnmarshalBinary(flap.Data.Bytes())
 		panicIfError(err)
 
 		fmt.Printf("%+v\n", snac)
-		if tlvs, err := UnmarshalTLVs(snac.Data); err == nil {
+		if tlvs, err := UnmarshalTLVs(snac.Data.Bytes()); err == nil {
 			for _, tlv := range tlvs {
 				fmt.Printf("%+v\n", tlv)
 			}
 		} else {
-			fmt.Printf("%s\n\n", prettyBytes(snac.Data))
+			fmt.Printf("%s\n\n", prettyBytes(snac.Data.Bytes()))
 		}
 
 		if service, ok := services[snac.Header.Family]; ok {
-			err = service.HandleSNAC(session, snac)
+			err = service.HandleSNAC(db, session, snac)
 			panicIfError(err)
 		}
 	}

@@ -1,5 +1,7 @@
 package main
 
+import "github.com/uptrace/bun"
+
 type Service interface {
-	HandleSNAC(*Session, *SNAC) error
+	HandleSNAC(*bun.DB, *Session, *SNAC) error
 }

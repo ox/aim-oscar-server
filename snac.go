@@ -19,13 +19,10 @@ type SNACHeader struct {
 
 type SNAC struct {
 	Header SNACHeader
-	Data   []byte
+	Data   Buffer
 }
 
-func NewSNAC(family uint16, subtype uint16, data []byte) *SNAC {
-	d := make([]byte, 0, len(data))
-	copy(d, data)
-
+func NewSNAC(family uint16, subtype uint16) *SNAC {
 	return &SNAC{
 		Header: SNACHeader{
 			Family:    family,
@@ -33,17 +30,17 @@ func NewSNAC(family uint16, subtype uint16, data []byte) *SNAC {
 			Flags:     0,
 			RequestID: 0,
 		},
-		Data: d,
 	}
 }
 
 func (s *SNAC) MarshalBinary() ([]byte, error) {
-	var buf bytes.Buffer
+	buf := Buffer{}
 
 	binary.Write(&buf, binary.BigEndian, s.Header)
-	n, err := buf.Write(s.Data)
-	if n != len(s.Data) {
-		return nil, fmt.Errorf("needed to write %d bytes to buffer but wrote %d", len(s.Data), n)
+	b := s.Data.Bytes()
+	n, err := buf.Write(b)
+	if n != len(b) {
+		return nil, fmt.Errorf("needed to write %d bytes to buffer but wrote %d", len(b), n)
 	}
 	if err != nil {
 		return nil, err
@@ -58,8 +55,7 @@ func (s *SNAC) UnmarshalBinary(data []byte) error {
 		return err
 	}
 
-	s.Data = make([]byte, buf.Len())
-	copy(s.Data, buf.Bytes())
+	s.Data.Write(buf.Bytes())
 
 	return nil
 }

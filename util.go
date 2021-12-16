@@ -2,20 +2,49 @@ package main
 
 import (
 	"encoding/hex"
+	"fmt"
+	"strconv"
+	"strings"
 )
 
-func prettyBytes(bytes []byte) string {
-	res := ""
-	hexStr := hex.EncodeToString(bytes)
-	for i := 0; i < len(hexStr); i++ {
-		if i > 0 && i%16 == 0 {
-			res += "\n"
-		} else if i > 0 && i%2 == 0 {
-			res += " "
+// splitBy splits string in chunks of n
+// taken from: https://stackoverflow.com/a/69403603
+func splitBy(s string, n int) []string {
+	var ss []string
+	for i := 1; i < len(s); i++ {
+		if i%n == 0 {
+			ss = append(ss, s[:i])
+			s = s[i:]
+			i = 1
 		}
-		res += string(hexStr[i])
 	}
-	return res
+	ss = append(ss, s)
+	return ss
+}
+
+func prettyBytes(bytes []byte) string {
+	hexStr := hex.EncodeToString(bytes)
+	rows := splitBy(hexStr, 16)
+
+	res := ""
+	for _, row := range rows {
+		byteGroups := splitBy(row, 2)
+		// Align string view to full 16 bytes + spaces
+		res += fmt.Sprintf("%-23s", strings.Join(byteGroups, " "))
+
+		res += " |"
+		for _, r := range byteGroups {
+			n, err := strconv.ParseInt(r, 16, 8)
+			if err != nil || (n < 32 || n > 126) {
+				res += "."
+			} else {
+				res += fmt.Sprint(n)
+			}
+		}
+		res += "|\n"
+	}
+
+	return strings.TrimSpace(res)
 }
 
 func panicIfError(err error) {
