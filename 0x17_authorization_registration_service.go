@@ -50,7 +50,7 @@ func (a *AuthorizationRegistrationService) HandleSNAC(db *bun.DB, session *Sessi
 			snac := NewSNAC(0x17, 0x03)
 			snac.Data.WriteBinary(usernameTLV)
 			snac.Data.WriteBinary(NewTLV(0x08, []byte{0, 4}))
-			resp := NewFLAP(session, 2)
+			resp := NewFLAP(2)
 			resp.Data.WriteBinary(snac)
 			return session.Send(resp)
 		}
@@ -65,7 +65,7 @@ func (a *AuthorizationRegistrationService) HandleSNAC(db *bun.DB, session *Sessi
 		snac.Data.WriteUint16(uint16(len(user.Cipher)))
 		snac.Data.WriteString(user.Cipher)
 
-		resp := NewFLAP(session, 2)
+		resp := NewFLAP(2)
 		resp.Data.WriteBinary(snac)
 		return session.Send(resp)
 
@@ -90,7 +90,7 @@ func (a *AuthorizationRegistrationService) HandleSNAC(db *bun.DB, session *Sessi
 			snac := NewSNAC(0x17, 0x03)
 			snac.Data.WriteBinary(usernameTLV)
 			snac.Data.WriteBinary(NewTLV(0x08, []byte{0, 4}))
-			resp := NewFLAP(session, 2)
+			resp := NewFLAP(2)
 			resp.Data.WriteBinary(snac)
 			return session.Send(resp)
 		}
@@ -111,12 +111,12 @@ func (a *AuthorizationRegistrationService) HandleSNAC(db *bun.DB, session *Sessi
 			badPasswordSnac := NewSNAC(0x17, 0x03)
 			badPasswordSnac.Data.WriteBinary(usernameTLV)
 			badPasswordSnac.Data.WriteBinary(NewTLV(0x08, []byte{0, 4}))
-			badPasswordFlap := NewFLAP(session, 2)
+			badPasswordFlap := NewFLAP(2)
 			badPasswordFlap.Data.WriteBinary(badPasswordSnac)
 			session.Send(badPasswordFlap)
 
 			// Tell tem to leave
-			discoFlap := NewFLAP(session, 4)
+			discoFlap := NewFLAP(4)
 			return session.Send(discoFlap)
 		}
 
@@ -125,12 +125,12 @@ func (a *AuthorizationRegistrationService) HandleSNAC(db *bun.DB, session *Sessi
 		authSnac.Data.WriteBinary(usernameTLV)
 		authSnac.Data.WriteBinary(NewTLV(0x5, []byte("10.0.1.2:5191")))
 		authSnac.Data.WriteBinary(NewTLV(0x6, []byte(`{"hello": "uwu"}`)))
-		authFlap := NewFLAP(session, 2)
+		authFlap := NewFLAP(2)
 		authFlap.Data.WriteBinary(authSnac)
 		session.Send(authFlap)
 
 		// Tell tem to leave
-		discoFlap := NewFLAP(session, 4)
+		discoFlap := NewFLAP(4)
 		return session.Send(discoFlap)
 	}
 

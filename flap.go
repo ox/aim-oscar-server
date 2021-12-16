@@ -21,13 +21,12 @@ type FLAP struct {
 	Data   Buffer
 }
 
-func NewFLAP(session *Session, channel uint8) *FLAP {
-	session.SequenceNumber += 1
-
+func NewFLAP(channel uint8) *FLAP {
 	return &FLAP{
 		Header: FLAPHeader{
 			Channel:        channel,
-			SequenceNumber: uint16(session.SequenceNumber),
+			SequenceNumber: 0,
+			DataLength:     0,
 		},
 	}
 }

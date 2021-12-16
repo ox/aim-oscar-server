@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding"
 	"fmt"
 	"net"
 
@@ -46,8 +45,10 @@ func CurrentSession(ctx context.Context) (session *Session, err error) {
 	return s.(*Session), nil
 }
 
-func (s *Session) Send(m encoding.BinaryMarshaler) error {
-	bytes, err := m.MarshalBinary()
+func (s *Session) Send(flap *FLAP) error {
+	s.SequenceNumber += 1
+	flap.Header.SequenceNumber = s.SequenceNumber
+	bytes, err := flap.MarshalBinary()
 	if err != nil {
 		return errors.Wrap(err, "could not marshal message")
 	}

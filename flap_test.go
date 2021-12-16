@@ -6,8 +6,7 @@ import (
 )
 
 func TestFLAP(t *testing.T) {
-	session := Session{}
-	hello := NewFLAP(&session, 1)
+	hello := NewFLAP(1)
 	hello.Data.Write([]byte{0, 0, 0, 1})
 
 	b, err := hello.MarshalBinary()

@@ -94,7 +94,7 @@ func handleTCPConnection(db *bun.DB, session *Session, conn net.Conn) {
 	for {
 		if !session.GreetedClient {
 			// send a hello
-			hello := NewFLAP(session, 1)
+			hello := NewFLAP(1)
 			hello.Data.Write([]byte{0, 0, 0, 1})
 			err := session.Send(hello)
 			panicIfError(err)
