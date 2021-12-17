@@ -2,17 +2,17 @@ package main
 
 import (
 	"aim-oscar/models"
+	"aim-oscar/oscar"
 	"context"
 	"database/sql"
 	"fmt"
-	"io"
 	"log"
 	"net"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
-	"github.com/pkg/errors"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dbfixture"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
@@ -26,11 +26,7 @@ const (
 	SRV_ADDRESS = SRV_HOST + ":" + SRV_PORT
 )
 
-var services = make(map[uint16]Service)
-
-func init() {
-	services[0x17] = &AuthorizationRegistrationService{}
-}
+var db *bun.DB
 
 func main() {
 	// Set up the DB
@@ -39,12 +35,16 @@ func main() {
 		panic(err)
 	}
 	db := bun.NewDB(sqldb, sqlitedialect.New())
+	db.SetConnMaxIdleTime(15 * time.Second)
+	db.SetConnMaxLifetime(1 * time.Minute)
 
 	// Print all queries to stdout.
 	db.AddQueryHook(bundebug.NewQueryHook(bundebug.WithVerbose(true)))
 
+	// Register our DB models
 	db.RegisterModel((*models.User)(nil))
 
+	// dev: load in fixtures to test against
 	fixture := dbfixture.New(db, dbfixture.WithRecreateTables())
 	err = fixture.Load(context.Background(), os.DirFS("models"), "fixtures.yml")
 	if err != nil {
@@ -57,6 +57,9 @@ func main() {
 		os.Exit(1)
 	}
 	defer listener.Close()
+
+	handler := oscar.NewHandler()
+	handler.RegisterService(0x17, &AuthorizationRegistrationService{db: db})
 
 	exitChan := make(chan os.Signal, 1)
 	signal.Notify(exitChan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM, syscall.SIGABRT)
@@ -74,84 +77,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		session := NewSession(conn)
 		log.Printf("Connection from %v", conn.RemoteAddr())
-
-		go handleTCPConnection(db, session, conn)
-	}
-}
-
-func handleTCPConnection(db *bun.DB, session *Session, conn net.Conn) {
-	// defer (func() {
-	// 	if err := recover(); err != nil {
-	// 		log.Printf("Error handling message: %+v\n", err.(error))
-	// 	}
-	// 	conn.Close()
-	// 	log.Printf("Closed connection to %v", conn.RemoteAddr())
-	// })()
-
-	buf := make([]byte, 1024)
-	for {
-		if !session.GreetedClient {
-			// send a hello
-			hello := NewFLAP(1)
-			hello.Data.Write([]byte{0, 0, 0, 1})
-			err := session.Send(hello)
-			panicIfError(err)
-			session.GreetedClient = true
-		}
-
-		n, err := conn.Read(buf)
-		if err != nil && err != io.EOF {
-			log.Println("Read Error: ", err.Error())
-			return
-		}
-
-		if n == 0 {
-			return
-		}
-
-		// Try to parse all of the FLAPs in the buffer if we have enough bytes to
-		// fill a FLAP header
-		for len(buf) >= 6 && buf[0] == 0x2a {
-			dataLength := Word(buf[4:6])
-			flapLength := int(dataLength) + 6
-			if len(buf) < flapLength {
-				log.Printf("not enough data, only %d bytes\n", len(buf))
-				break
-			}
-
-			flap := &FLAP{}
-			if err := flap.UnmarshalBinary(buf[:flapLength]); err != nil {
-				panicIfError(errors.Wrap(err, "could not unmarshal FLAP"))
-			}
-			buf = buf[flapLength:]
-			fmt.Printf("%v ->\n%+v\n", conn.RemoteAddr(), flap)
-			handleMessage(db, session, flap)
-		}
-	}
-}
-
-func handleMessage(db *bun.DB, session *Session, flap *FLAP) {
-	if flap.Header.Channel == 1 {
-
-	} else if flap.Header.Channel == 2 {
-		snac := &SNAC{}
-		err := snac.UnmarshalBinary(flap.Data.Bytes())
-		panicIfError(err)
-
-		fmt.Printf("%+v\n", snac)
-		if tlvs, err := UnmarshalTLVs(snac.Data.Bytes()); err == nil {
-			for _, tlv := range tlvs {
-				fmt.Printf("%+v\n", tlv)
-			}
-		} else {
-			fmt.Printf("%s\n\n", prettyBytes(snac.Data.Bytes()))
-		}
-
-		if service, ok := services[snac.Header.Family]; ok {
-			err = service.HandleSNAC(db, session, snac)
-			panicIfError(err)
-		}
+		go handler.Handle(conn)
 	}
 }
