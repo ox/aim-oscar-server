@@ -26,8 +26,6 @@ const (
 	SRV_ADDRESS = SRV_HOST + ":" + SRV_PORT
 )
 
-var db *bun.DB
-
 func main() {
 	// Set up the DB
 	sqldb, err := sql.Open(sqliteshim.ShimName, "file::memory:?cache=shared")
