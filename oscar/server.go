@@ -13,12 +13,17 @@ import (
 )
 
 type HandlerFunc func(context.Context, *FLAP) context.Context
+type HandleCloseFn func(context.Context, *Session)
 
-type Handler struct{ handle HandlerFunc }
+type Handler struct {
+	handle      HandlerFunc
+	handleClose HandleCloseFn
+}
 
-func NewHandler(fn HandlerFunc) *Handler {
+func NewHandler(fn HandlerFunc, handleClose HandleCloseFn) *Handler {
 	return &Handler{
-		handle: fn,
+		handle:      fn,
+		handleClose: handleClose,
 	}
 }
 
@@ -40,8 +45,8 @@ func (h *Handler) Handle(conn net.Conn) {
 		n, err := conn.Read(buf)
 		if err != nil && err != io.EOF {
 			if strings.Contains(err.Error(), "use of closed network connection") {
-				log.Printf("%v disconnected", conn.RemoteAddr())
 				session.Disconnect()
+				h.handleClose(ctx, session)
 				return
 			}
 

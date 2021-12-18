@@ -78,14 +78,19 @@ func (g *GenericServiceControls) HandleSNAC(ctx context.Context, db *bun.DB, sna
 		onlineSnac.Data.WriteString(uin)
 		onlineSnac.Data.WriteUint16(0) // warning level
 
+		user.Status = "active"
+		if err := user.Update(ctx, db); err != nil {
+			return ctx, errors.Wrap(err, "could not set user as active")
+		}
+
 		tlvs := []*oscar.TLV{
-			oscar.NewTLV(0x01, util.Dword(0x80)),                                      // User Class
-			oscar.NewTLV(0x06, util.Dword(0x0001|0x0100)),                             // User Status (TODO: update status in DB)
-			oscar.NewTLV(0x0a, util.Dword(binary.BigEndian.Uint32([]byte(SRV_HOST)))), // External IP
-			oscar.NewTLV(0x0f, util.Dword(0x0)),                                       // Idle Time (TODO: track idle time)
-			oscar.NewTLV(0x03, util.Dword(uint32(time.Now().Unix()))),                 // Client Signon Time
-			oscar.NewTLV(0x01e, util.Dword(0x0)),                                      // Unknown value
-			oscar.NewTLV(0x05, util.Dword(uint32(time.Now().Unix()))),                 // Member since
+			oscar.NewTLV(0x01, util.Dword(0x80)),                                              // User Class
+			oscar.NewTLV(0x06, util.Dword(0x0001|0x0100)),                                     // User Status
+			oscar.NewTLV(0x0a, util.Dword(binary.BigEndian.Uint32([]byte(SRV_HOST)))),         // External IP
+			oscar.NewTLV(0x0f, util.Dword(uint32(time.Since(user.LastActivityAt).Seconds()))), // Idle Time
+			oscar.NewTLV(0x03, util.Dword(uint32(time.Now().Unix()))),                         // Client Signon Time
+			oscar.NewTLV(0x01e, util.Dword(0x0)),                                              // Unknown value
+			oscar.NewTLV(0x05, util.Dword(uint32(user.CreatedAt.Unix()))),                     // Member since
 		}
 
 		onlineSnac.Data.WriteUint16(uint16(len(tlvs)))

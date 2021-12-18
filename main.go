@@ -15,6 +15,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dbfixture"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
@@ -68,7 +69,19 @@ func main() {
 	}
 	defer listener.Close()
 
-	handler := oscar.NewHandler(func(ctx context.Context, flap *oscar.FLAP) context.Context {
+	handleCloseFn := func(ctx context.Context, session *oscar.Session) {
+		log.Printf("%v disconnected", session.RemoteAddr())
+
+		user := models.UserFromContext(ctx)
+		if user != nil {
+			user.Status = "offline"
+			if err := user.Update(ctx, db); err != nil {
+				log.Print(errors.Wrap(err, "could not set user as active"))
+			}
+		}
+	}
+
+	handleFn := func(ctx context.Context, flap *oscar.FLAP) context.Context {
 		session, err := oscar.SessionFromContext(ctx)
 		if err != nil {
 			util.PanicIfError(err)
@@ -76,6 +89,8 @@ func main() {
 
 		if user := models.UserFromContext(ctx); user != nil {
 			fmt.Printf("%s (%v) ->\n%+v\n", user.Username, session.RemoteAddr(), flap)
+			user.LastActivityAt = time.Now()
+			ctx = models.NewContextWithUser(ctx, user)
 		} else {
 			fmt.Printf("%v ->\n%+v\n", session.RemoteAddr(), flap)
 		}
@@ -123,10 +138,13 @@ func main() {
 			}
 		} else if flap.Header.Channel == 4 {
 			session.Disconnect()
+			handleCloseFn(ctx, session)
 		}
 
 		return ctx
-	})
+	}
+
+	handler := oscar.NewHandler(handleFn, handleCloseFn)
 
 	RegisterService(0x17, &AuthorizationRegistrationService{})
 	RegisterService(0x01, &GenericServiceControls{})

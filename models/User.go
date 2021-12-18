@@ -3,18 +3,23 @@ package models
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/uptrace/bun"
 )
 
 type User struct {
-	bun.BaseModel `bun:"table:users"`
-	UIN           int    `bun:",pk,autoincrement"`
-	Email         string `bun:",unique"`
-	Username      string `bun:",unique"`
-	Password      string
-	Cipher        string
+	bun.BaseModel  `bun:"table:users"`
+	UIN            int    `bun:",pk,autoincrement"`
+	Email          string `bun:",unique"`
+	Username       string `bun:",unique"`
+	Password       string
+	Cipher         string
+	CreatedAt      time.Time `bun:",nullzero,notnull,default:current_timestamp"`
+	UpdatedAt      time.Time `bun:",nullzero,notnull,default:current_timestamp"`
+	Status         string
+	LastActivityAt time.Time `bin:"-"`
 }
 
 type userKey string
