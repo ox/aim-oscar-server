@@ -43,8 +43,8 @@ func (t *TLV) UnmarshalBinary(data []byte) error {
 	if len(data) < 4 {
 		return io.ErrUnexpectedEOF
 	}
-	t.Type = util.Word(data[:2])
-	t.DataLength = util.Word(data[2:4])
+	t.Type = binary.BigEndian.Uint16(data[:2])
+	t.DataLength = binary.BigEndian.Uint16(data[2:4])
 	if len(data) < 4+int(t.DataLength) {
 		return io.ErrUnexpectedEOF
 	}

@@ -1,0 +1,113 @@
+package main
+
+import (
+	"aim-oscar/models"
+	"aim-oscar/oscar"
+	"aim-oscar/util"
+	"context"
+	"encoding/binary"
+	"fmt"
+	"time"
+
+	"github.com/pkg/errors"
+	"github.com/uptrace/bun"
+)
+
+var versions map[uint16]uint16
+
+func init() {
+	versions = make(map[uint16]uint16)
+	versions[1] = 3
+	versions[4] = 1
+}
+
+type GenericServiceControls struct{}
+
+func (g *GenericServiceControls) HandleSNAC(ctx context.Context, db *bun.DB, snac *oscar.SNAC) (context.Context, error) {
+	session, _ := oscar.SessionFromContext(ctx)
+
+	switch snac.Header.Subtype {
+	// Client wants to know the rate limits for all services
+	case 0x06:
+		rateSnac := oscar.NewSNAC(1, 7)
+		rateSnac.Data.WriteUint16(1) // one rate class
+
+		// Define a Rate Class
+		rc := oscar.Buffer{}
+		rc.WriteUint16(1)    // ID
+		rc.WriteUint32(80)   // Window Size
+		rc.WriteUint32(2500) // Clear level
+		rc.WriteUint32(2000) // Alert level
+		rc.WriteUint32(1500) // Limit level
+		rc.WriteUint32(800)  // Disconnect level
+		rc.WriteUint32(3400) // Current level (fake)
+		rc.WriteUint32(6000) // Max level
+		rc.WriteUint32(0)    // Last time ?
+		rc.WriteUint8(0)     // Current state ?
+		rateSnac.Data.Write(rc.Bytes())
+
+		// Define a Rate Group
+		rg := oscar.Buffer{}
+		rg.WriteUint16(1) // ID
+
+		// TODO: make actual rate groups instead of this hack. I can't tell which subtypes are supported so
+		// make it set rate limits for everything family for all subtypes under 0x21.
+		rg.WriteUint16(2 * 0x21) // Number of rate groups
+		for family := range versions {
+			for subtype := 0; subtype < 0x21; subtype++ {
+				rg.WriteUint16(family)
+				rg.WriteUint16(uint16(subtype))
+			}
+		}
+		rateSnac.Data.Write(rg.Bytes())
+
+		rateFlap := oscar.NewFLAP(2)
+		rateFlap.Data.WriteBinary(rateSnac)
+		return ctx, session.Send(rateFlap)
+
+	// Client wants their own online information
+	case 0x0e:
+		user := models.UserFromContext(ctx)
+		if user == nil {
+			return ctx, errors.New("expecting user in context")
+		}
+
+		onlineSnac := oscar.NewSNAC(1, 0xf)
+		uin := fmt.Sprint(user.UIN)
+		onlineSnac.Data.WriteUint8(uint8(len(uin)))
+		onlineSnac.Data.WriteString(uin)
+		onlineSnac.Data.WriteUint16(0) // warning level
+
+		tlvs := []*oscar.TLV{
+			oscar.NewTLV(0x01, util.Dword(0x80)),                                      // User Class
+			oscar.NewTLV(0x06, util.Dword(0x0001|0x0100)),                             // User Status (TODO: update status in DB)
+			oscar.NewTLV(0x0a, util.Dword(binary.BigEndian.Uint32([]byte(SRV_HOST)))), // External IP
+			oscar.NewTLV(0x0f, util.Dword(0x0)),                                       // Idle Time (TODO: track idle time)
+			oscar.NewTLV(0x03, util.Dword(uint32(time.Now().Unix()))),                 // Client Signon Time
+			oscar.NewTLV(0x01e, util.Dword(0x0)),                                      // Unknown value
+			oscar.NewTLV(0x05, util.Dword(uint32(time.Now().Unix()))),                 // Member since
+		}
+
+		onlineSnac.Data.WriteUint16(uint16(len(tlvs)))
+		for _, tlv := range tlvs {
+			onlineSnac.Data.WriteBinary(tlv)
+		}
+
+		onlineFlap := oscar.NewFLAP(2)
+		onlineFlap.Data.WriteBinary(onlineSnac)
+		return ctx, session.Send(onlineFlap)
+
+	// Client wants to know the versions of all of the services offered
+	case 0x17:
+		versionsSnac := oscar.NewSNAC(1, 0x18)
+		for family, version := range versions {
+			versionsSnac.Data.WriteUint16(family)
+			versionsSnac.Data.WriteUint16(version)
+		}
+		versionsFlap := oscar.NewFLAP(2)
+		versionsFlap.Data.WriteBinary(versionsSnac)
+		return ctx, session.Send(versionsFlap)
+	}
+
+	return ctx, nil
+}

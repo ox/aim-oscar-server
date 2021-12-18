@@ -2,27 +2,31 @@ package oscar
 
 import (
 	"aim-oscar/util"
-	"fmt"
+	"context"
+	"encoding/binary"
 	"io"
 	"log"
 	"net"
+	"strings"
 
 	"github.com/pkg/errors"
 )
 
-type HandlerFunc func(*Session, *FLAP)
+type HandlerFunc func(context.Context, *FLAP) context.Context
 
-type Handler struct{ fn HandlerFunc }
+type Handler struct{ handle HandlerFunc }
 
 func NewHandler(fn HandlerFunc) *Handler {
 	return &Handler{
-		fn: fn,
+		handle: fn,
 	}
 }
 
 func (h *Handler) Handle(conn net.Conn) {
-	session := NewSession(conn)
-	buf := make([]byte, 1024)
+	ctx := NewContextWithSession(context.Background(), conn)
+	session, _ := SessionFromContext(ctx)
+
+	buf := make([]byte, 2048)
 	for {
 		if !session.GreetedClient {
 			// send a hello
@@ -35,7 +39,13 @@ func (h *Handler) Handle(conn net.Conn) {
 
 		n, err := conn.Read(buf)
 		if err != nil && err != io.EOF {
-			log.Println("Read Error: ", err.Error())
+			if strings.Contains(err.Error(), "use of closed network connection") {
+				log.Printf("%v disconnected", conn.RemoteAddr())
+				session.Disconnect()
+				return
+			}
+
+			log.Println("OSCAR Read Error: ", err.Error())
 			return
 		}
 
@@ -46,7 +56,7 @@ func (h *Handler) Handle(conn net.Conn) {
 		// Try to parse all of the FLAPs in the buffer if we have enough bytes to
 		// fill a FLAP header
 		for len(buf) >= 6 && buf[0] == 0x2a {
-			dataLength := util.Word(buf[4:6])
+			dataLength := binary.BigEndian.Uint16(buf[4:6])
 			flapLength := int(dataLength) + 6
 			if len(buf) < flapLength {
 				log.Printf("not enough data, only %d bytes\n", len(buf))
@@ -58,8 +68,7 @@ func (h *Handler) Handle(conn net.Conn) {
 				util.PanicIfError(errors.Wrap(err, "could not unmarshal FLAP"))
 			}
 			buf = buf[flapLength:]
-			fmt.Printf("%v ->\n%+v\n", conn.RemoteAddr(), flap)
-			h.fn(session, flap)
+			ctx = h.handle(ctx, flap)
 		}
 	}
 }

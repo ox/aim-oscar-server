@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	SRV_HOST    = ""
+	SRV_HOST    = "10.0.1.2"
 	SRV_PORT    = "5190"
 	SRV_ADDRESS = SRV_HOST + ":" + SRV_PORT
 )
@@ -68,12 +68,40 @@ func main() {
 	}
 	defer listener.Close()
 
-	handler := oscar.NewHandler(func(session *oscar.Session, flap *oscar.FLAP) {
+	handler := oscar.NewHandler(func(ctx context.Context, flap *oscar.FLAP) context.Context {
+		session, err := oscar.SessionFromContext(ctx)
+		if err != nil {
+			util.PanicIfError(err)
+		}
+
+		if user := models.UserFromContext(ctx); user != nil {
+			fmt.Printf("%s (%v) ->\n%+v\n", user.Username, session.RemoteAddr(), flap)
+		} else {
+			fmt.Printf("%v ->\n%+v\n", session.RemoteAddr(), flap)
+		}
+
 		if flap.Header.Channel == 1 {
 			// Is this a hello?
 			if bytes.Equal(flap.Data.Bytes(), []byte{0, 0, 0, 1}) {
-				return
+				return ctx
 			}
+
+			user, err := AuthenticateFLAPCookie(ctx, db, flap)
+			if err != nil {
+				log.Printf("Could not authenticate cookie: %s", err)
+				return ctx
+			}
+			ctx = models.NewContextWithUser(ctx, user)
+
+			// Send available services
+			servicesSnac := oscar.NewSNAC(1, 3)
+			servicesSnac.Data.WriteUint16(0x1)
+			servicesSnac.Data.WriteUint16(0x4)
+			servicesFlap := oscar.NewFLAP(2)
+			servicesFlap.Data.WriteBinary(servicesSnac)
+			session.Send(servicesFlap)
+
+			return ctx
 		} else if flap.Header.Channel == 2 {
 			snac := &oscar.SNAC{}
 			err := snac.UnmarshalBinary(flap.Data.Bytes())
@@ -89,13 +117,20 @@ func main() {
 			}
 
 			if service, ok := services[snac.Header.Family]; ok {
-				err = service.HandleSNAC(db, session, snac)
+				newCtx, err := service.HandleSNAC(ctx, db, snac)
 				util.PanicIfError(err)
+				return newCtx
 			}
+		} else if flap.Header.Channel == 4 {
+			session.Disconnect()
 		}
+
+		return ctx
 	})
 
 	RegisterService(0x17, &AuthorizationRegistrationService{})
+	RegisterService(0x01, &GenericServiceControls{})
+	RegisterService(0x04, &ICBM{})
 
 	exitChan := make(chan os.Signal, 1)
 	signal.Notify(exitChan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM, syscall.SIGABRT)

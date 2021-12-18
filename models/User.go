@@ -17,6 +17,16 @@ type User struct {
 	Cipher        string
 }
 
+type userKey string
+
+func (s userKey) String() string {
+	return "user-" + string(s)
+}
+
+var (
+	currentUser = userKey("user")
+)
+
 func UserByUsername(ctx context.Context, db *bun.DB, username string) (*User, error) {
 	user := new(User)
 	if err := db.NewSelect().Model(user).Where("username = ?", username).Scan(ctx, user); err != nil {
@@ -26,6 +36,29 @@ func UserByUsername(ctx context.Context, db *bun.DB, username string) (*User, er
 		return nil, errors.Wrap(err, "could not fetch user")
 	}
 	return user, nil
+}
+
+func UserByUIN(ctx context.Context, db *bun.DB, uin int) (*User, error) {
+	user := new(User)
+	if err := db.NewSelect().Model(user).Where("uin = ?", uin).Scan(ctx, user); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, errors.Wrap(err, "could not fetch user")
+	}
+	return user, nil
+}
+
+func NewContextWithUser(ctx context.Context, user *User) context.Context {
+	return context.WithValue(ctx, currentUser, user)
+}
+
+func UserFromContext(ctx context.Context) *User {
+	v := ctx.Value(currentUser)
+	if v == nil {
+		return nil
+	}
+	return v.(*User)
 }
 
 func (u *User) Update(ctx context.Context, db *bun.DB) error {

@@ -53,12 +53,10 @@ func PanicIfError(err error) {
 	}
 }
 
-func Word(b []byte) uint16 {
-	var _ = b[1]
-	return uint16(b[1]) | uint16(b[0])<<8
+func Word(x uint16) []byte {
+	return []byte{byte(x >> 8), byte(x & 0xf)}
 }
 
-func DWord(b []byte) uint32 {
-	var _ = b[3]
-	return uint32(b[3]) | uint32(b[2])<<8 | uint32(b[1])<<16 | uint32(b[0])<<24
+func Dword(x uint32) []byte {
+	return []byte{byte(x >> 24), byte(x >> 16), byte(x >> 8), byte(x & 0xf)}
 }
