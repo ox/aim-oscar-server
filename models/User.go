@@ -11,6 +11,7 @@ import (
 type User struct {
 	bun.BaseModel `bun:"table:users"`
 	UIN           int    `bun:",pk,autoincrement"`
+	Email         string `bun:",unique"`
 	Username      string `bun:",unique"`
 	Password      string
 	Cipher        string

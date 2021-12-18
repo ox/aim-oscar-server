@@ -1,4 +1,4 @@
-package oscar
+package util
 
 import (
 	"encoding/hex"
@@ -9,7 +9,7 @@ import (
 
 // splitBy splits string in chunks of n
 // taken from: https://stackoverflow.com/a/69403603
-func splitBy(s string, n int) []string {
+func SplitBy(s string, n int) []string {
 	var ss []string
 	for i := 1; i < len(s); i++ {
 		if i%n == 0 {
@@ -22,13 +22,13 @@ func splitBy(s string, n int) []string {
 	return ss
 }
 
-func prettyBytes(bytes []byte) string {
+func PrettyBytes(bytes []byte) string {
 	hexStr := hex.EncodeToString(bytes)
-	rows := splitBy(hexStr, 16)
+	rows := SplitBy(hexStr, 16)
 
 	res := ""
 	for _, row := range rows {
-		byteGroups := splitBy(row, 2)
+		byteGroups := SplitBy(row, 2)
 		// Align string view to full 16 bytes + spaces
 		res += fmt.Sprintf("%-23s", strings.Join(byteGroups, " "))
 
@@ -47,7 +47,7 @@ func prettyBytes(bytes []byte) string {
 	return strings.TrimSpace(res)
 }
 
-func panicIfError(err error) {
+func PanicIfError(err error) {
 	if err != nil {
 		panic(err)
 	}

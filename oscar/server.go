@@ -1,6 +1,7 @@
 package oscar
 
 import (
+	"aim-oscar/util"
 	"fmt"
 	"io"
 	"log"
@@ -9,18 +10,14 @@ import (
 	"github.com/pkg/errors"
 )
 
-type Handler struct {
-	services map[uint16]Service
-}
+type HandlerFunc func(*Session, *FLAP)
 
-func NewHandler() *Handler {
+type Handler struct{ fn HandlerFunc }
+
+func NewHandler(fn HandlerFunc) *Handler {
 	return &Handler{
-		services: make(map[uint16]Service),
+		fn: fn,
 	}
-}
-
-func (h *Handler) RegisterService(family uint16, service Service) {
-	h.services[family] = service
 }
 
 func (h *Handler) Handle(conn net.Conn) {
@@ -32,7 +29,7 @@ func (h *Handler) Handle(conn net.Conn) {
 			hello := NewFLAP(1)
 			hello.Data.Write([]byte{0, 0, 0, 1})
 			err := session.Send(hello)
-			panicIfError(err)
+			util.PanicIfError(err)
 			session.GreetedClient = true
 		}
 
@@ -49,7 +46,7 @@ func (h *Handler) Handle(conn net.Conn) {
 		// Try to parse all of the FLAPs in the buffer if we have enough bytes to
 		// fill a FLAP header
 		for len(buf) >= 6 && buf[0] == 0x2a {
-			dataLength := Word(buf[4:6])
+			dataLength := util.Word(buf[4:6])
 			flapLength := int(dataLength) + 6
 			if len(buf) < flapLength {
 				log.Printf("not enough data, only %d bytes\n", len(buf))
@@ -58,32 +55,11 @@ func (h *Handler) Handle(conn net.Conn) {
 
 			flap := &FLAP{}
 			if err := flap.UnmarshalBinary(buf[:flapLength]); err != nil {
-				panicIfError(errors.Wrap(err, "could not unmarshal FLAP"))
+				util.PanicIfError(errors.Wrap(err, "could not unmarshal FLAP"))
 			}
 			buf = buf[flapLength:]
 			fmt.Printf("%v ->\n%+v\n", conn.RemoteAddr(), flap)
-
-			if flap.Header.Channel == 1 {
-
-			} else if flap.Header.Channel == 2 {
-				snac := &SNAC{}
-				err := snac.UnmarshalBinary(flap.Data.Bytes())
-				panicIfError(err)
-
-				fmt.Printf("%+v\n", snac)
-				if tlvs, err := UnmarshalTLVs(snac.Data.Bytes()); err == nil {
-					for _, tlv := range tlvs {
-						fmt.Printf("%+v\n", tlv)
-					}
-				} else {
-					fmt.Printf("%s\n\n", prettyBytes(snac.Data.Bytes()))
-				}
-
-				if service, ok := h.services[snac.Header.Family]; ok {
-					err = service.HandleSNAC(session, snac)
-					panicIfError(err)
-				}
-			}
+			h.fn(session, flap)
 		}
 	}
 }

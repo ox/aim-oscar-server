@@ -2,3 +2,4 @@
   rows:
     - username: toof
       password: bar
+      email: toof@plot.club

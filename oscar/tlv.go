@@ -1,6 +1,7 @@
 package oscar
 
 import (
+	"aim-oscar/util"
 	"encoding"
 	"encoding/binary"
 	"fmt"
@@ -42,8 +43,8 @@ func (t *TLV) UnmarshalBinary(data []byte) error {
 	if len(data) < 4 {
 		return io.ErrUnexpectedEOF
 	}
-	t.Type = Word(data[:2])
-	t.DataLength = Word(data[2:4])
+	t.Type = util.Word(data[:2])
+	t.DataLength = util.Word(data[2:4])
 	if len(data) < 4+int(t.DataLength) {
 		return io.ErrUnexpectedEOF
 	}
@@ -53,7 +54,7 @@ func (t *TLV) UnmarshalBinary(data []byte) error {
 }
 
 func (t *TLV) String() string {
-	return fmt.Sprintf("TLV(%#x):\n%s", t.Type, prettyBytes(t.Data))
+	return fmt.Sprintf("TLV(%#x):\n%s", t.Type, util.PrettyBytes(t.Data))
 }
 
 func UnmarshalTLVs(data []byte) ([]*TLV, error) {

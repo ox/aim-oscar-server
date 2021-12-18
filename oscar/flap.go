@@ -1,6 +1,7 @@
 package oscar
 
 import (
+	"aim-oscar/util"
 	"bytes"
 	"encoding"
 	"encoding/binary"
@@ -72,5 +73,5 @@ func (f *FLAP) Len() int {
 }
 
 func (f *FLAP) String() string {
-	return fmt.Sprintf("FLAP(CH:%d, SEQ:%d):\n%s", f.Header.Channel, f.Header.SequenceNumber, prettyBytes(f.Data.Bytes()))
+	return fmt.Sprintf("FLAP(CH:%d, SEQ:%d):\n%s", f.Header.Channel, f.Header.SequenceNumber, util.PrettyBytes(f.Data.Bytes()))
 }

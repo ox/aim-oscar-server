@@ -45,7 +45,7 @@ const server = net.createServer((socket) => {
     // new Administration(comm),
     // new Popups(comm),
     // new PrivacyManagement(comm),
-    new UserLookup(comm),
+    // new UserLookup(comm),
     // new UsageStats(comm),
     // new ChatNavigation(comm),
     // new Chat(comm),

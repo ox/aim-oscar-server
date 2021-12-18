@@ -1,6 +1,7 @@
 package oscar
 
 import (
+	"aim-oscar/util"
 	"context"
 	"fmt"
 	"net"
@@ -53,7 +54,7 @@ func (s *Session) Send(flap *FLAP) error {
 		return errors.Wrap(err, "could not marshal message")
 	}
 
-	fmt.Printf("-> %v\n%s\n\n", s.Conn.RemoteAddr(), prettyBytes(bytes))
+	fmt.Printf("-> %v\n%s\n\n", s.Conn.RemoteAddr(), util.PrettyBytes(bytes))
 	_, err = s.Conn.Write(bytes)
 	return errors.Wrap(err, "could not write to client connection")
 }

@@ -3,6 +3,8 @@ package main
 import (
 	"aim-oscar/models"
 	"aim-oscar/oscar"
+	"aim-oscar/util"
+	"bytes"
 	"context"
 	"database/sql"
 	"fmt"
@@ -25,6 +27,16 @@ const (
 	SRV_PORT    = "5190"
 	SRV_ADDRESS = SRV_HOST + ":" + SRV_PORT
 )
+
+var services map[uint16]Service
+
+func init() {
+	services = make(map[uint16]Service)
+}
+
+func RegisterService(family uint16, service Service) {
+	services[family] = service
+}
 
 func main() {
 	// Set up the DB
@@ -56,8 +68,34 @@ func main() {
 	}
 	defer listener.Close()
 
-	handler := oscar.NewHandler()
-	handler.RegisterService(0x17, &AuthorizationRegistrationService{db: db})
+	handler := oscar.NewHandler(func(session *oscar.Session, flap *oscar.FLAP) {
+		if flap.Header.Channel == 1 {
+			// Is this a hello?
+			if bytes.Equal(flap.Data.Bytes(), []byte{0, 0, 0, 1}) {
+				return
+			}
+		} else if flap.Header.Channel == 2 {
+			snac := &oscar.SNAC{}
+			err := snac.UnmarshalBinary(flap.Data.Bytes())
+			util.PanicIfError(err)
+
+			fmt.Printf("%+v\n", snac)
+			if tlvs, err := oscar.UnmarshalTLVs(snac.Data.Bytes()); err == nil {
+				for _, tlv := range tlvs {
+					fmt.Printf("%+v\n", tlv)
+				}
+			} else {
+				fmt.Printf("%s\n\n", util.PrettyBytes(snac.Data.Bytes()))
+			}
+
+			if service, ok := services[snac.Header.Family]; ok {
+				err = service.HandleSNAC(db, session, snac)
+				util.PanicIfError(err)
+			}
+		}
+	})
+
+	RegisterService(0x17, &AuthorizationRegistrationService{})
 
 	exitChan := make(chan os.Signal, 1)
 	signal.Notify(exitChan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM, syscall.SIGABRT)
