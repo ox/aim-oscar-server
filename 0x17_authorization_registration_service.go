@@ -22,7 +22,7 @@ const CIPHER_LENGTH = 64
 const AIM_MD5_STRING = "AOL Instant Messenger (SM)"
 
 type AuthorizationCookie struct {
-	UIN int
+	UIN int64
 	X   string
 }
 

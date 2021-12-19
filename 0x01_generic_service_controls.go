@@ -6,7 +6,6 @@ import (
 	"aim-oscar/util"
 	"context"
 	"encoding/binary"
-	"fmt"
 	"time"
 
 	"github.com/pkg/errors"
@@ -73,9 +72,8 @@ func (g *GenericServiceControls) HandleSNAC(ctx context.Context, db *bun.DB, sna
 		}
 
 		onlineSnac := oscar.NewSNAC(1, 0xf)
-		uin := fmt.Sprint(user.UIN)
-		onlineSnac.Data.WriteUint8(uint8(len(uin)))
-		onlineSnac.Data.WriteString(uin)
+		onlineSnac.Data.WriteUint8(uint8(len(user.Username)))
+		onlineSnac.Data.WriteString(user.Username)
 		onlineSnac.Data.WriteUint16(0) // warning level
 
 		user.Status = "active"

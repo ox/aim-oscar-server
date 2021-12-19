@@ -53,7 +53,7 @@ func main() {
 	db.AddQueryHook(bundebug.NewQueryHook(bundebug.WithVerbose(true)))
 
 	// Register our DB models
-	db.RegisterModel((*models.User)(nil))
+	db.RegisterModel((*models.User)(nil), (*models.Message)(nil))
 
 	// dev: load in fixtures to test against
 	fixture := dbfixture.New(db, dbfixture.WithRecreateTables())

@@ -11,7 +11,7 @@ import (
 
 type User struct {
 	bun.BaseModel  `bun:"table:users"`
-	UIN            int    `bun:",pk,autoincrement"`
+	UIN            int64  `bun:",pk,autoincrement"`
 	Email          string `bun:",unique"`
 	Username       string `bun:",unique"`
 	Password       string
@@ -43,7 +43,7 @@ func UserByUsername(ctx context.Context, db *bun.DB, username string) (*User, er
 	return user, nil
 }
 
-func UserByUIN(ctx context.Context, db *bun.DB, uin int) (*User, error) {
+func UserByUIN(ctx context.Context, db *bun.DB, uin int64) (*User, error) {
 	user := new(User)
 	if err := db.NewSelect().Model(user).Where("uin = ?", uin).Scan(ctx, user); err != nil {
 		if err == sql.ErrNoRows {
