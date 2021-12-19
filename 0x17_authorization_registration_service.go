@@ -74,7 +74,7 @@ func (a *AuthorizationRegistrationService) GenerateCipher() string {
 	return base32.StdEncoding.EncodeToString(randomBytes)[:CIPHER_LENGTH]
 }
 
-func (a *AuthorizationRegistrationService) HandleSNAC(ctx context.Context, db *bun.DB, snac *oscar.SNAC) (context.Context, error) {
+func (a *AuthorizationRegistrationService) HandleSNAC(ctx context.Context, db *bun.DB, snac *oscar.SNAC, comm chan *models.Message) (context.Context, error) {
 	session, err := oscar.SessionFromContext(ctx)
 	if err != nil {
 		util.PanicIfError(err)

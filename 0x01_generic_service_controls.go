@@ -22,7 +22,7 @@ func init() {
 
 type GenericServiceControls struct{}
 
-func (g *GenericServiceControls) HandleSNAC(ctx context.Context, db *bun.DB, snac *oscar.SNAC) (context.Context, error) {
+func (g *GenericServiceControls) HandleSNAC(ctx context.Context, db *bun.DB, snac *oscar.SNAC, comm chan *models.Message) (context.Context, error) {
 	session, _ := oscar.SessionFromContext(ctx)
 
 	switch snac.Header.Subtype {
@@ -83,7 +83,7 @@ func (g *GenericServiceControls) HandleSNAC(ctx context.Context, db *bun.DB, sna
 
 		tlvs := []*oscar.TLV{
 			oscar.NewTLV(0x01, util.Dword(0x80)),                                              // User Class
-			oscar.NewTLV(0x06, util.Dword(0x0001|0x0100)),                                     // User Status
+			oscar.NewTLV(0x06, util.Dword(0x0001|0x0100)),                                     // TODO: User Status
 			oscar.NewTLV(0x0a, util.Dword(binary.BigEndian.Uint32([]byte(SRV_HOST)))),         // External IP
 			oscar.NewTLV(0x0f, util.Dword(uint32(time.Since(user.LastActivityAt).Seconds()))), // Idle Time
 			oscar.NewTLV(0x03, util.Dword(uint32(time.Now().Unix()))),                         // Client Signon Time

@@ -46,7 +46,7 @@ type channel struct {
 	Unknown                 uint16
 }
 
-func (icbm *ICBM) HandleSNAC(ctx context.Context, db *bun.DB, snac *oscar.SNAC) (context.Context, error) {
+func (icbm *ICBM) HandleSNAC(ctx context.Context, db *bun.DB, snac *oscar.SNAC, comm chan *models.Message) (context.Context, error) {
 	session, _ := oscar.SessionFromContext(ctx)
 
 	switch snac.Header.Subtype {
@@ -173,9 +173,13 @@ func (icbm *ICBM) HandleSNAC(ctx context.Context, db *bun.DB, snac *oscar.SNAC) 
 			return ctx, errors.New("read insufficient data from message fragment")
 		}
 
-		if err = models.InsertMessage(ctx, db, msgID, user.Username, to, string(messageContents)); err != nil {
+		message, err := models.InsertMessage(ctx, db, msgID, user.Username, to, string(messageContents))
+		if err != nil {
 			return ctx, errors.Wrap(err, "could not insert message")
 		}
+
+		// Fire the message off into the communication channel to get delivered
+		comm <- message
 
 		// The Client usually wants a response that the server got the message. It checks that the message
 		// back has the same message ID that was sent and the user it was sent to.
