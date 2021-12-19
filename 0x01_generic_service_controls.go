@@ -18,6 +18,7 @@ var versions map[uint16]uint16
 func init() {
 	versions = make(map[uint16]uint16)
 	versions[1] = 3
+	versions[2] = 1
 	versions[3] = 1
 	versions[4] = 1
 	versions[17] = 1
@@ -36,7 +37,7 @@ func (g *GenericServiceControls) HandleSNAC(ctx context.Context, db *bun.DB, sna
 	case 0x02:
 		user := models.UserFromContext(ctx)
 		if user != nil {
-			user.Status = models.UserStatusActive
+			user.Status = models.UserStatusOnline
 			if err := user.Update(ctx, db); err != nil {
 				return ctx, errors.Wrap(err, "could not set user as active")
 			}
@@ -51,7 +52,7 @@ func (g *GenericServiceControls) HandleSNAC(ctx context.Context, db *bun.DB, sna
 			}
 
 			for _, buddy := range buddies {
-				if buddy.Source.Status != models.UserStatusActive {
+				if buddy.Source.Status != models.UserStatusOnline {
 					continue
 				}
 
@@ -61,7 +62,7 @@ func (g *GenericServiceControls) HandleSNAC(ctx context.Context, db *bun.DB, sna
 
 				tlvs := []*oscar.TLV{
 					oscar.NewTLV(1, util.Word(0)),                                                     // TODO: user class
-					oscar.NewTLV(0x06, util.Dword(0x50)),                                              // TODO: User Status
+					oscar.NewTLV(0x06, util.Dword(uint32(user.Status))),                               // TODO: User Status
 					oscar.NewTLV(0x0a, util.Dword(binary.BigEndian.Uint32([]byte(SRV_HOST)))),         // External IP
 					oscar.NewTLV(0x0f, util.Dword(uint32(time.Since(user.LastActivityAt).Seconds()))), // Idle Time
 					oscar.NewTLV(0x03, util.Dword(uint32(time.Now().Unix()))),                         // Client Signon Time
@@ -110,7 +111,7 @@ func (g *GenericServiceControls) HandleSNAC(ctx context.Context, db *bun.DB, sna
 
 		// TODO: make actual rate groups instead of this hack. I can't tell which subtypes are supported so
 		// make it set rate limits for everything family for all subtypes under 0x21.
-		rg.WriteUint16(3 * 0x21) // Number of rate groups
+		rg.WriteUint16(uint16(len(versions)) * 0x21) // Number of rate groups
 		for family := range versions {
 			for subtype := 0; subtype < 0x21; subtype++ {
 				rg.WriteUint16(family)
@@ -135,14 +136,14 @@ func (g *GenericServiceControls) HandleSNAC(ctx context.Context, db *bun.DB, sna
 		onlineSnac.Data.WriteString(user.Username)
 		onlineSnac.Data.WriteUint16(0) // warning level
 
-		user.Status = models.UserStatusActive
+		user.Status = models.UserStatusOnline
 		if err := user.Update(ctx, db); err != nil {
 			return ctx, errors.Wrap(err, "could not set user as active")
 		}
 
 		tlvs := []*oscar.TLV{
-			oscar.NewTLV(0x01, util.Dword(0x80)),                                              // User Class
-			oscar.NewTLV(0x06, util.Dword(0x50)),                                              // TODO: User Status
+			oscar.NewTLV(0x01, util.Dword(0)),                                                 // User Class
+			oscar.NewTLV(0x06, util.Dword(uint32(user.Status))),                               // TODO: User Status
 			oscar.NewTLV(0x0a, util.Dword(binary.BigEndian.Uint32([]byte(SRV_HOST)))),         // External IP
 			oscar.NewTLV(0x0f, util.Dword(uint32(time.Since(user.LastActivityAt).Seconds()))), // Idle Time
 			oscar.NewTLV(0x03, util.Dword(uint32(time.Now().Unix()))),                         // Client Signon Time

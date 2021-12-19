@@ -99,12 +99,15 @@ func main() {
 
 		user := models.UserFromContext(ctx)
 		if user != nil {
-			user.Status = models.UserStatusInactive
+			// tellBuddies := user.Status != models.UserStatusAway
+			user.Status = models.UserStatusAway
 			if err := user.Update(ctx, db); err != nil {
 				log.Print(errors.Wrap(err, "could not set user as inactive"))
 			}
 
-			onlineCh <- user
+			if true {
+				onlineCh <- user
+			}
 		}
 	}
 
@@ -176,10 +179,11 @@ func main() {
 
 	handler := oscar.NewHandler(handleFn, handleCloseFn)
 
-	RegisterService(0x17, &AuthorizationRegistrationService{})
 	RegisterService(0x01, &GenericServiceControls{OnlineCh: onlineCh})
+	RegisterService(0x02, &LocationServices{OnlineCh: onlineCh})
 	RegisterService(0x03, &BuddyListManagement{})
 	RegisterService(0x04, &ICBM{CommCh: commCh})
+	RegisterService(0x17, &AuthorizationRegistrationService{})
 
 	exitChan := make(chan os.Signal, 1)
 	signal.Notify(exitChan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM, syscall.SIGABRT)

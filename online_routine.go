@@ -6,7 +6,6 @@ import (
 	"aim-oscar/util"
 	"context"
 	"encoding/binary"
-	"fmt"
 	"log"
 	"time"
 
@@ -26,66 +25,51 @@ func OnlineNotification() (chan *models.User, routineFn) {
 				return
 			}
 
-			if user.Status == models.UserStatusActive {
-				fmt.Printf("%s is online", user.Username)
-
-				var buddies []*models.Buddy
-				err := db.NewSelect().Model(&buddies).Where("with_uin = ?", user.UIN).Relation("Source").Relation("Target").Scan(context.Background(), &buddies)
-				if err != nil {
-					log.Printf("could not find user's buddies: %s", err.Error())
-					return
-				}
-
-				for _, buddy := range buddies {
-					if s := getSession(buddy.Source.Username); s != nil {
-						onlineSnac := oscar.NewSNAC(3, 0xb)
-						onlineSnac.Data.WriteLPString(user.Username)
-						onlineSnac.Data.WriteUint16(0) // TODO: user warning level
-
-						tlvs := []*oscar.TLV{
-							oscar.NewTLV(1, util.Word(0)),                                                     // TODO: user class
-							oscar.NewTLV(0x06, util.Dword(0x50)),                                              // TODO: User Status
-							oscar.NewTLV(0x0a, util.Dword(binary.BigEndian.Uint32([]byte(SRV_HOST)))),         // External IP
-							oscar.NewTLV(0x0f, util.Dword(uint32(time.Since(user.LastActivityAt).Seconds()))), // Idle Time
-							oscar.NewTLV(0x03, util.Dword(uint32(time.Now().Unix()))),                         // Client Signon Time
-							oscar.NewTLV(0x05, util.Dword(uint32(user.CreatedAt.Unix()))),                     // Member since
-						}
-
-						onlineSnac.Data.WriteUint16(uint16(len(tlvs)))
-						for _, tlv := range tlvs {
-							onlineSnac.Data.WriteBinary(tlv)
-						}
-
-						onlineFlap := oscar.NewFLAP(2)
-						onlineFlap.Data.WriteBinary(onlineSnac)
-						if err := s.Send(onlineFlap); err != nil {
-							log.Printf("could not tell %s that %s is online", buddy.Source.Username, buddy.Target.Username)
-						}
-					}
-				}
+			if user.Status == models.UserStatusOnline {
+				log.Printf("%s is now online", user.Username)
+			} else if user.Status == models.UserStatusAway {
+				log.Printf("%s is now away", user.Username)
 			}
 
-			if user.Status == models.UserStatusInactive {
-				var buddies []*models.Buddy
-				err := db.NewSelect().Model(&buddies).Where("with_uin = ?", user.UIN).Relation("Source").Relation("Target").Scan(context.Background(), &buddies)
-				if err != nil {
-					log.Printf("could not find user's buddies: %s", err.Error())
-					return
+			ctx := context.Background()
+
+			// Find buddies who are friends with the user
+			var buddies []*models.Buddy
+			err := db.NewSelect().Model(&buddies).Where("with_uin = ?", user.UIN).Relation("Source").Scan(ctx, &buddies)
+			if err != nil {
+				log.Printf("could not find user's buddies: %s", err.Error())
+				return
+			}
+
+			for _, buddy := range buddies {
+				if buddy.Source.Status == models.UserStatusAway || buddy.Source.Status == models.UserStatusDnd {
+					continue
 				}
+				log.Printf("telling %s that %s has a new status: %d!", buddy.Source.Username, user.Username, user.Status)
 
-				for _, buddy := range buddies {
-					if s := getSession(buddy.Source.Username); s != nil {
-						offlineSnac := oscar.NewSNAC(3, 0xb)
-						offlineSnac.Data.WriteLPString(user.Username)
-						offlineSnac.Data.WriteUint16(0) // TODO: user warning level
-						offlineSnac.Data.WriteUint16(1)
-						offlineSnac.Data.WriteBinary(oscar.NewTLV(1, util.Dword(0x80)))
+				if s := getSession(buddy.Source.Username); s != nil {
+					onlineSnac := oscar.NewSNAC(3, 0xb)
+					onlineSnac.Data.WriteLPString(user.Username)
+					onlineSnac.Data.WriteUint16(0) // TODO: user warning level
 
-						offlineFlap := oscar.NewFLAP(2)
-						offlineFlap.Data.WriteBinary(offlineSnac)
-						if err := s.Send(offlineFlap); err != nil {
-							log.Printf("could not tell %s that %s is offline", buddy.Source.Username, buddy.Target.Username)
-						}
+					tlvs := []*oscar.TLV{
+						oscar.NewTLV(1, util.Word(0)),                                                     // TODO: user class
+						oscar.NewTLV(0x06, util.Dword(uint32(user.Status))),                               // TODO: User Status
+						oscar.NewTLV(0x0a, util.Dword(binary.BigEndian.Uint32([]byte(SRV_HOST)))),         // External IP
+						oscar.NewTLV(0x0f, util.Dword(uint32(time.Since(user.LastActivityAt).Seconds()))), // Idle Time
+						oscar.NewTLV(0x03, util.Dword(uint32(time.Now().Unix()))),                         // Client Signon Time
+						oscar.NewTLV(0x05, util.Dword(uint32(user.CreatedAt.Unix()))),                     // Member since
+					}
+
+					onlineSnac.Data.WriteUint16(uint16(len(tlvs)))
+					for _, tlv := range tlvs {
+						onlineSnac.Data.WriteBinary(tlv)
+					}
+
+					onlineFlap := oscar.NewFLAP(2)
+					onlineFlap.Data.WriteBinary(onlineSnac)
+					if err := s.Send(onlineFlap); err != nil {
+						log.Printf("could not tell %s that %s is online", buddy.Source.Username, user.Username)
 					}
 				}
 			}

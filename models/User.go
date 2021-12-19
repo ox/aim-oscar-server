@@ -12,21 +12,30 @@ import (
 type UserStatus int16
 
 const (
-	UserStatusInactive UserStatus = iota
-	UserStatusActive
+	UserStatusOnline    = 0
+	UserStatusAway      = 1
+	UserStatusDnd       = 2
+	UserStatusNA        = 4
+	UserStatusOccupied  = 0x10
+	UserStatusFree4Chat = 0x20
+	UserStatusInvisible = 0x100
 )
 
 type User struct {
-	bun.BaseModel  `bun:"table:users"`
-	UIN            int64  `bun:",pk,autoincrement"`
-	Email          string `bun:",unique"`
-	Username       string `bun:",unique"`
-	Password       string
-	Cipher         string
-	CreatedAt      time.Time `bun:",nullzero,notnull,default:current_timestamp"`
-	UpdatedAt      time.Time `bun:",nullzero,notnull,default:current_timestamp"`
-	Status         UserStatus
-	LastActivityAt time.Time `bin:"-"`
+	bun.BaseModel       `bun:"table:users"`
+	UIN                 int64  `bun:",pk,autoincrement"`
+	Email               string `bun:",unique"`
+	Username            string `bun:",unique"`
+	Password            string
+	Cipher              string
+	CreatedAt           time.Time `bun:",nullzero,notnull,default:current_timestamp"`
+	UpdatedAt           time.Time `bun:",nullzero,notnull,default:current_timestamp"`
+	Status              UserStatus
+	Profile             string
+	ProfileEncoding     string
+	AwayMessage         string
+	AwayMessageEncoding string
+	LastActivityAt      time.Time `bin:"-"`
 }
 
 type userKey string

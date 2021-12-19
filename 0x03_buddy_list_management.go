@@ -87,7 +87,7 @@ func (b *BuddyListManagement) HandleSNAC(ctx context.Context, db *bun.DB, snac *
 				return ctx, aimerror.UserNotFound(buddyScreename)
 			}
 
-			_, err = db.NewDelete().Model((*models.Buddy)(nil)).Where("uin = ?", user.UIN).Where("with_uin = ?", buddy.UIN).Exec(ctx)
+			_, err = db.NewDelete().Model((*models.Buddy)(nil)).Where("source_uin = ?", user.UIN).Where("with_uin = ?", buddy.UIN).Exec(ctx)
 			if err != nil {
 				return ctx, err
 			}

@@ -60,3 +60,7 @@ func Word(x uint16) []byte {
 func Dword(x uint32) []byte {
 	return []byte{byte(x >> 24), byte(x >> 16), byte(x >> 8), byte(x & 0xf)}
 }
+
+func LPString(x string) []byte {
+	return append(Word(uint16(len(x))), []byte(x)...)
+}

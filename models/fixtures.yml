@@ -11,8 +11,4 @@
 - model: Message
   rows: []
 - model: Buddy
-  rows:
-    - source_uin: 1
-      with_uin: 2
-    - source_uin: 2
-      with_uin: 1
+  rows: []
