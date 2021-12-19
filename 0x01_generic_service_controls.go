@@ -1,6 +1,7 @@
 package main
 
 import (
+	"aim-oscar/aimerror"
 	"aim-oscar/models"
 	"aim-oscar/oscar"
 	"aim-oscar/util"
@@ -17,15 +18,73 @@ var versions map[uint16]uint16
 func init() {
 	versions = make(map[uint16]uint16)
 	versions[1] = 3
+	versions[3] = 1
 	versions[4] = 1
+	versions[17] = 1
 }
 
-type GenericServiceControls struct{}
+type GenericServiceControls struct {
+	OnlineCh chan *models.User
+}
 
-func (g *GenericServiceControls) HandleSNAC(ctx context.Context, db *bun.DB, snac *oscar.SNAC, comm chan *models.Message) (context.Context, error) {
+func (g *GenericServiceControls) HandleSNAC(ctx context.Context, db *bun.DB, snac *oscar.SNAC) (context.Context, error) {
 	session, _ := oscar.SessionFromContext(ctx)
 
 	switch snac.Header.Subtype {
+
+	// Client is ONLINE and READY
+	case 0x02:
+		user := models.UserFromContext(ctx)
+		if user != nil {
+			user.Status = models.UserStatusActive
+			if err := user.Update(ctx, db); err != nil {
+				return ctx, errors.Wrap(err, "could not set user as active")
+			}
+
+			g.OnlineCh <- user
+
+			// Find all of the buddies that are online and tell the user
+			var buddies []*models.Buddy
+			err := db.NewSelect().Model(&buddies).Where("with_uin = ?", user.UIN).Relation("Source").Scan(context.Background(), &buddies)
+			if err != nil {
+				return ctx, errors.Wrapf(err, "could not find user's buddies: %s", err.Error())
+			}
+
+			for _, buddy := range buddies {
+				if buddy.Source.Status != models.UserStatusActive {
+					continue
+				}
+
+				onlineSnac := oscar.NewSNAC(3, 0xb)
+				onlineSnac.Data.WriteLPString(buddy.Source.Username)
+				onlineSnac.Data.WriteUint16(0) // TODO: user warning level
+
+				tlvs := []*oscar.TLV{
+					oscar.NewTLV(1, util.Word(0x80)),                                                  // TODO: user class
+					oscar.NewTLV(0x06, util.Dword(0x0001|0x0100)),                                     // TODO: User Status
+					oscar.NewTLV(0x0a, util.Dword(binary.BigEndian.Uint32([]byte(SRV_HOST)))),         // External IP
+					oscar.NewTLV(0x0f, util.Dword(uint32(time.Since(user.LastActivityAt).Seconds()))), // Idle Time
+					oscar.NewTLV(0x03, util.Dword(uint32(time.Now().Unix()))),                         // Client Signon Time
+					oscar.NewTLV(0x05, util.Dword(uint32(user.CreatedAt.Unix()))),                     // Member since
+				}
+
+				onlineSnac.Data.WriteUint16(uint16(len(tlvs)))
+				for _, tlv := range tlvs {
+					onlineSnac.Data.WriteBinary(tlv)
+				}
+
+				onlineFlap := oscar.NewFLAP(2)
+				onlineFlap.Data.WriteBinary(onlineSnac)
+				if err := session.Send(onlineFlap); err != nil {
+					return ctx, errors.Wrapf(err, "could not tell %s that %s is online", buddy.Source.Username, buddy.Target.Username)
+				}
+			}
+
+			return models.NewContextWithUser(ctx, user), nil
+		}
+
+		return ctx, nil
+
 	// Client wants to know the rate limits for all services
 	case 0x06:
 		rateSnac := oscar.NewSNAC(1, 7)
@@ -51,7 +110,7 @@ func (g *GenericServiceControls) HandleSNAC(ctx context.Context, db *bun.DB, sna
 
 		// TODO: make actual rate groups instead of this hack. I can't tell which subtypes are supported so
 		// make it set rate limits for everything family for all subtypes under 0x21.
-		rg.WriteUint16(2 * 0x21) // Number of rate groups
+		rg.WriteUint16(3 * 0x21) // Number of rate groups
 		for family := range versions {
 			for subtype := 0; subtype < 0x21; subtype++ {
 				rg.WriteUint16(family)
@@ -68,7 +127,7 @@ func (g *GenericServiceControls) HandleSNAC(ctx context.Context, db *bun.DB, sna
 	case 0x0e:
 		user := models.UserFromContext(ctx)
 		if user == nil {
-			return ctx, errors.New("expecting user in context")
+			return ctx, aimerror.NoUserInSession
 		}
 
 		onlineSnac := oscar.NewSNAC(1, 0xf)
@@ -76,7 +135,7 @@ func (g *GenericServiceControls) HandleSNAC(ctx context.Context, db *bun.DB, sna
 		onlineSnac.Data.WriteString(user.Username)
 		onlineSnac.Data.WriteUint16(0) // warning level
 
-		user.Status = "active"
+		user.Status = models.UserStatusActive
 		if err := user.Update(ctx, db); err != nil {
 			return ctx, errors.Wrap(err, "could not set user as active")
 		}
@@ -98,7 +157,7 @@ func (g *GenericServiceControls) HandleSNAC(ctx context.Context, db *bun.DB, sna
 
 		onlineFlap := oscar.NewFLAP(2)
 		onlineFlap.Data.WriteBinary(onlineSnac)
-		return ctx, session.Send(onlineFlap)
+		return models.NewContextWithUser(ctx, user), session.Send(onlineFlap)
 
 	// Client wants to know the versions of all of the services offered
 	case 0x17:

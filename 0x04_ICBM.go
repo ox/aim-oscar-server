@@ -1,6 +1,7 @@
 package main
 
 import (
+	"aim-oscar/aimerror"
 	"aim-oscar/models"
 	"aim-oscar/oscar"
 	"bytes"
@@ -12,7 +13,9 @@ import (
 	"github.com/uptrace/bun"
 )
 
-type ICBM struct{}
+type ICBM struct {
+	CommCh chan *models.Message
+}
 
 type icbmKey string
 
@@ -46,7 +49,7 @@ type channel struct {
 	Unknown                 uint16
 }
 
-func (icbm *ICBM) HandleSNAC(ctx context.Context, db *bun.DB, snac *oscar.SNAC, comm chan *models.Message) (context.Context, error) {
+func (icbm *ICBM) HandleSNAC(ctx context.Context, db *bun.DB, snac *oscar.SNAC) (context.Context, error) {
 	session, _ := oscar.SessionFromContext(ctx)
 
 	switch snac.Header.Subtype {
@@ -93,7 +96,7 @@ func (icbm *ICBM) HandleSNAC(ctx context.Context, db *bun.DB, snac *oscar.SNAC, 
 	case 0x06:
 		user := models.UserFromContext(ctx)
 		if user == nil {
-			return ctx, errors.New("context should have User")
+			return ctx, aimerror.NoUserInSession
 		}
 
 		msgID, _ := snac.Data.ReadUint64()
@@ -179,7 +182,7 @@ func (icbm *ICBM) HandleSNAC(ctx context.Context, db *bun.DB, snac *oscar.SNAC, 
 		}
 
 		// Fire the message off into the communication channel to get delivered
-		comm <- message
+		icbm.CommCh <- message
 
 		// The Client usually wants a response that the server got the message. It checks that the message
 		// back has the same message ID that was sent and the user it was sent to.

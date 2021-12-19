@@ -12,6 +12,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -33,6 +34,18 @@ var services map[uint16]Service
 
 // Map username to session
 var sessions map[string]*oscar.Session
+var sessionsMutex = &sync.RWMutex{}
+
+func getSession(username string) *oscar.Session {
+	sessionsMutex.RLock()
+	s, ok := sessions[username]
+	sessionsMutex.RUnlock()
+
+	if ok {
+		return s
+	}
+	return nil
+}
 
 func init() {
 	services = make(map[uint16]Service)
@@ -57,7 +70,7 @@ func main() {
 	db.AddQueryHook(bundebug.NewQueryHook(bundebug.WithVerbose(true)))
 
 	// Register our DB models
-	db.RegisterModel((*models.User)(nil), (*models.Message)(nil))
+	db.RegisterModel((*models.User)(nil), (*models.Message)(nil), (*models.Buddy)(nil))
 
 	// dev: load in fixtures to test against
 	fixture := dbfixture.New(db, dbfixture.WithRecreateTables())
@@ -77,15 +90,21 @@ func main() {
 	commCh, messageRoutine := MessageDelivery()
 	go messageRoutine(db)
 
+	// Goroutine that listens for users who change their online status and notifies their buddies
+	onlineCh, onlineRoutine := OnlineNotification()
+	go onlineRoutine(db)
+
 	handleCloseFn := func(ctx context.Context, session *oscar.Session) {
 		log.Printf("%v disconnected", session.RemoteAddr())
 
 		user := models.UserFromContext(ctx)
 		if user != nil {
-			user.Status = "offline"
+			user.Status = models.UserStatusInactive
 			if err := user.Update(ctx, db); err != nil {
-				log.Print(errors.Wrap(err, "could not set user as active"))
+				log.Print(errors.Wrap(err, "could not set user as inactive"))
 			}
+
+			onlineCh <- user
 		}
 	}
 
@@ -119,8 +138,10 @@ func main() {
 
 			// Send available services
 			servicesSnac := oscar.NewSNAC(1, 3)
-			servicesSnac.Data.WriteUint16(0x1)
-			servicesSnac.Data.WriteUint16(0x4)
+			for family := range versions {
+				servicesSnac.Data.WriteUint16(family)
+			}
+
 			servicesFlap := oscar.NewFLAP(2)
 			servicesFlap.Data.WriteBinary(servicesSnac)
 			session.Send(servicesFlap)
@@ -141,7 +162,7 @@ func main() {
 			}
 
 			if service, ok := services[snac.Header.Family]; ok {
-				newCtx, err := service.HandleSNAC(ctx, db, snac, commCh)
+				newCtx, err := service.HandleSNAC(ctx, db, snac)
 				util.PanicIfError(err)
 				return newCtx
 			}
@@ -156,14 +177,16 @@ func main() {
 	handler := oscar.NewHandler(handleFn, handleCloseFn)
 
 	RegisterService(0x17, &AuthorizationRegistrationService{})
-	RegisterService(0x01, &GenericServiceControls{})
-	RegisterService(0x04, &ICBM{})
+	RegisterService(0x01, &GenericServiceControls{OnlineCh: onlineCh})
+	RegisterService(0x03, &BuddyListManagement{})
+	RegisterService(0x04, &ICBM{CommCh: commCh})
 
 	exitChan := make(chan os.Signal, 1)
 	signal.Notify(exitChan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM, syscall.SIGABRT)
 	go func() {
 		<-exitChan
 		close(commCh)
+		close(onlineCh)
 		fmt.Println("Shutting down")
 		os.Exit(1)
 	}()

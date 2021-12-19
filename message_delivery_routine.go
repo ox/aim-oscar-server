@@ -16,6 +16,8 @@ func MessageDelivery() (chan *models.Message, routineFn) {
 	commCh := make(chan *models.Message, 1)
 
 	routine := func(db *bun.DB) {
+		log.Printf("message delivery routine started")
+
 		for {
 			message, more := <-commCh
 			if !more {
@@ -24,9 +26,9 @@ func MessageDelivery() (chan *models.Message, routineFn) {
 			}
 
 			log.Printf("got a message: %s", message)
-			if s, ok := sessions[message.To]; ok {
+			if s := getSession(message.To); s != nil {
 				messageSnac := oscar.NewSNAC(4, 7)
-				messageSnac.Data.WriteUint64(message.MessageID)
+				messageSnac.Data.WriteUint64(message.Cookie)
 				messageSnac.Data.WriteUint16(1)
 				messageSnac.Data.WriteLPString(message.From)
 				messageSnac.Data.WriteUint16(0) // TODO: sender's warning level
@@ -60,14 +62,14 @@ func MessageDelivery() (chan *models.Message, routineFn) {
 				messageFlap := oscar.NewFLAP(2)
 				messageFlap.Data.WriteBinary(messageSnac)
 				if err := s.Send(messageFlap); err != nil {
-					log.Panicf("could not deliver message %d: %s", message.MessageID, err.Error())
+					log.Panicf("could not deliver message %d: %s", message.Cookie, err.Error())
 					continue
 				} else {
-					log.Printf("sent message %d to user %s at %s", message.MessageID, message.To, s.RemoteAddr())
+					log.Printf("sent message %d to user %s at %s", message.Cookie, message.To, s.RemoteAddr())
 				}
 
 				if err := message.MarkDelivered(context.Background(), db); err != nil {
-					log.Panicf("could not mark message %d as delivered: %s", message.MessageID, err.Error())
+					log.Panicf("could not mark message %d as delivered: %s", message.Cookie, err.Error())
 				}
 			} else {
 				log.Printf("could not find session for user %s", message.To)

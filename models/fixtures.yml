@@ -1,10 +1,18 @@
 - model: User
   rows:
-    - username: toof
+    - uin: 1
+      username: toof
       password: bar
       email: toof@plot.club
-    - username: artem
+    - uin: 2
+      username: artem
       password: bar
       email: artem@plot.club
 - model: Message
   rows: []
+- model: Buddy
+  rows:
+    - source_uin: 1
+      with_uin: 2
+    - source_uin: 2
+      with_uin: 1

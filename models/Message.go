@@ -11,7 +11,8 @@ import (
 
 type Message struct {
 	bun.BaseModel `bun:"table:messages"`
-	MessageID     uint64 `bun:",pk,notnull,unique"`
+	ID            int    `bun:",pk"`
+	Cookie        uint64 `bun:",notnull"`
 	From          string
 	To            string
 	Contents      string
@@ -19,12 +20,12 @@ type Message struct {
 	DeliveredAt   time.Time `bun:",nullzero"`
 }
 
-func InsertMessage(ctx context.Context, db *bun.DB, messageId uint64, from string, to string, contents string) (*Message, error) {
+func InsertMessage(ctx context.Context, db *bun.DB, cookie uint64, from string, to string, contents string) (*Message, error) {
 	msg := &Message{
-		MessageID: messageId,
-		From:      from,
-		To:        to,
-		Contents:  contents,
+		Cookie:   cookie,
+		From:     from,
+		To:       to,
+		Contents: contents,
 	}
 	if _, err := db.NewInsert().Model(msg).Exec(ctx, msg); err != nil {
 		return nil, errors.Wrap(err, "could not update user")
@@ -39,7 +40,7 @@ func (m *Message) String() string {
 
 func (m *Message) MarkDelivered(ctx context.Context, db *bun.DB) error {
 	m.DeliveredAt = time.Now()
-	if _, err := db.NewUpdate().Model(m).Where("message_id = ?", m.MessageID).Exec(ctx); err != nil {
+	if _, err := db.NewUpdate().Model(m).Where("cookie = ?", m.Cookie).Exec(ctx); err != nil {
 		return errors.Wrap(err, "could not mark message as updated")
 	}
 

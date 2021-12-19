@@ -9,6 +9,13 @@ import (
 	"github.com/uptrace/bun"
 )
 
+type UserStatus int16
+
+const (
+	UserStatusInactive UserStatus = iota
+	UserStatusActive
+)
+
 type User struct {
 	bun.BaseModel  `bun:"table:users"`
 	UIN            int64  `bun:",pk,autoincrement"`
@@ -18,7 +25,7 @@ type User struct {
 	Cipher         string
 	CreatedAt      time.Time `bun:",nullzero,notnull,default:current_timestamp"`
 	UpdatedAt      time.Time `bun:",nullzero,notnull,default:current_timestamp"`
-	Status         string
+	Status         UserStatus
 	LastActivityAt time.Time `bin:"-"`
 }
 
