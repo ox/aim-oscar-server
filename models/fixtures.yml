@@ -3,5 +3,8 @@
     - username: toof
       password: bar
       email: toof@plot.club
+    - username: artem
+      password: bar
+      email: artem@plot.club
 - model: Message
   rows: []

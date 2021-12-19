@@ -2,3 +2,4 @@ node_modules
 built
 dist
 aim-oscar
+aim.db

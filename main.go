@@ -45,7 +45,7 @@ func RegisterService(family uint16, service Service) {
 
 func main() {
 	// Set up the DB
-	sqldb, err := sql.Open(sqliteshim.ShimName, "file::memory:?cache=shared")
+	sqldb, err := sql.Open(sqliteshim.ShimName, "file:aim.db")
 	if err != nil {
 		panic(err)
 	}
@@ -101,6 +101,11 @@ func main() {
 
 				// Length of TLVs in fixed part
 				messageSnac.Data.WriteUint16(uint16(len(tlvs)))
+
+				// Write all of the TLVs to the SNAC
+				for _, tlv := range tlvs {
+					messageSnac.Data.WriteBinary(tlv)
+				}
 
 				frag := oscar.Buffer{}
 				frag.Write([]byte{5, 1, 0, 4, 1, 1, 1, 1})               // TODO: first fragment [id, version, len, len, (cap * len)... ]
