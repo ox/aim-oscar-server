@@ -1,6 +1,7 @@
 package util
 
 import (
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"strconv"
@@ -54,13 +55,21 @@ func PanicIfError(err error) {
 }
 
 func Word(x uint16) []byte {
-	return []byte{byte(x >> 8), byte(x & 0xf)}
+	b := make([]byte, 2)
+	binary.BigEndian.PutUint16(b, x)
+	return b
 }
 
 func Dword(x uint32) []byte {
-	return []byte{byte(x >> 24), byte(x >> 16), byte(x >> 8), byte(x & 0xf)}
+	b := make([]byte, 4)
+	binary.BigEndian.PutUint32(b, x)
+	return b
 }
 
 func LPString(x string) []byte {
+	return append([]byte{uint8(len(x))}, []byte(x)...)
+}
+
+func LPUint16String(x string) []byte {
 	return append(Word(uint16(len(x))), []byte(x)...)
 }

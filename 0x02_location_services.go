@@ -101,12 +101,12 @@ func (s *LocationServices) HandleSNAC(ctx context.Context, db *bun.DB, snac *osc
 		respSnac.Data.WriteUint16(0) // TODO: warning level
 
 		tlvs := []*oscar.TLV{
-			oscar.NewTLV(1, util.Dword(0x80)), // user class
-			// oscar.NewTLV(6, util.Dword(uint32(requestedUser.Status))),                                  // user status
+			oscar.NewTLV(1, util.Dword(0)),                            // user class
+			oscar.NewTLV(6, util.Dword(uint32(requestedUser.Status))), // user status
 			// oscar.NewTLV(0x0a, util.Dword(binary.BigEndian.Uint32([]byte(SRV_HOST)))),                  // user external IP
 			oscar.NewTLV(0x0f, util.Dword(uint32(time.Since(requestedUser.LastActivityAt).Seconds()))), // idle time
 			oscar.NewTLV(0x03, util.Dword(uint32(time.Now().Unix()))),                                  // TODO: signon time
-			// oscar.NewTLV(0x05, util.Dword(uint32(requestedUser.CreatedAt.Unix()))),                     // member since
+			oscar.NewTLV(0x05, util.Dword(uint32(requestedUser.CreatedAt.Unix()))),                     // member since
 		}
 
 		respSnac.Data.WriteUint16(uint16(len(tlvs))) // number of TLVs
@@ -116,16 +116,16 @@ func (s *LocationServices) HandleSNAC(ctx context.Context, db *bun.DB, snac *osc
 
 		// General info (Profile)
 		if requestType == 1 {
-			respSnac.Data.WriteBinary(oscar.NewTLV(1, util.LPString(requestedUser.ProfileEncoding)))
-			respSnac.Data.WriteBinary(oscar.NewTLV(2, util.LPString(requestedUser.Profile)))
+			respSnac.Data.WriteBinary(oscar.NewTLV(1, []byte(requestedUser.ProfileEncoding)))
+			respSnac.Data.WriteBinary(oscar.NewTLV(2, []byte(requestedUser.Profile)))
 		}
 
 		// Request Type 2 = online status, no TLVs
 
 		// Away message
 		if requestType == 3 {
-			respSnac.Data.WriteBinary(oscar.NewTLV(3, util.LPString(requestedUser.AwayMessageEncoding)))
-			respSnac.Data.WriteBinary(oscar.NewTLV(4, util.LPString(requestedUser.AwayMessage)))
+			respSnac.Data.WriteBinary(oscar.NewTLV(3, []byte(requestedUser.AwayMessageEncoding)))
+			respSnac.Data.WriteBinary(oscar.NewTLV(4, []byte(requestedUser.AwayMessage)))
 		}
 
 		// TODO: Request Type 4 - User capabilities
