@@ -2,15 +2,14 @@ FROM golang:1.17-alpine3.14 AS build
 
 WORKDIR /app
 COPY go.mod go.sum /app
-RUN go mod download && go mod vendor
-RUN ls -l /app
-
+RUN go mod download
 COPY . /app
-RUN ls -l /app
-RUN go build -ldflags="-s -w" -o aim
-RUN chmod +x aim
+RUN go build -ldflags="-s -w" -o /app/aim
+RUN chmod +x /app/aim
 
-FROM scratch AS prod
+FROM golang:1.17-alpine3.14 AS prod
+
+WORKDIR /app
 
 EXPOSE 5190
 ARG OSCAR_HOST
@@ -18,5 +17,6 @@ ARG OSCAR_PORT
 ARG OSCAR_BOS_HOST
 ARG OSCAR_BOS_PORT
 
+COPY --from=build /app/models /app/models
 COPY --from=build /app/aim /app/aim
-ENTRYPOINT /app/aim
+CMD ["/app/aim"]

@@ -89,7 +89,7 @@ func main() {
 
 	// dev: load in fixtures to test against
 	fixture := dbfixture.New(db, dbfixture.WithRecreateTables())
-	err = fixture.Load(context.Background(), os.DirFS("models"), "fixtures.yml")
+	err = fixture.Load(context.Background(), os.DirFS("./models"), "fixtures.yml")
 	if err != nil {
 		panic(err)
 	}
