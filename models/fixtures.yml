@@ -3,11 +3,11 @@
     - uin: 1
       username: toof
       password: bar
-      email: toof@plot.club
+      email: toof@example.com
     - uin: 2
       username: artem
       password: bar
-      email: artem@plot.club
+      email: artem@example.com
 - model: Message
   rows: []
 - model: Buddy
