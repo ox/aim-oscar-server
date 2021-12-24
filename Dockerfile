@@ -2,11 +2,13 @@ FROM golang:1.17-alpine3.14 AS build
 
 WORKDIR /app
 COPY go.mod go.sum /app
-RUN (([ ! -d "/app/vendor" ] && go mod download && go mod vendor) || true)
+RUN go mod download && go mod vendor
+RUN ls -l /app
 
 COPY . /app
-RUN go build -ldflags="-s -w" -mod vendor -o "aim" main.go
-RUN chmod +x "aim"
+RUN ls -l /app
+RUN go build -ldflags="-s -w" -o aim
+RUN chmod +x aim
 
 FROM scratch AS prod
 
