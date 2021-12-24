@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"flag"
 	"fmt"
 	"log"
 	"net"
@@ -24,13 +25,53 @@ import (
 	"github.com/uptrace/bun/extra/bundebug"
 )
 
-const (
-	SRV_HOST    = "0.0.0.0"
-	SRV_PORT    = "5190"
-	SRV_ADDRESS = SRV_HOST + ":" + SRV_PORT
+var (
+	OSCAR_HOST        = "0.0.0.0"
+	OSCAR_PORT        = "5190"
+	OSCAR_ADDRESS     = OSCAR_HOST + ":" + OSCAR_PORT
+	OSCAR_BOS_HOST    = OSCAR_HOST
+	OSCAR_BOS_PORT    = OSCAR_PORT
+	OSCAR_BOS_ADDRESS = OSCAR_BOS_HOST + ":" + OSCAR_BOS_PORT
 )
 
+func init() {
+	if oscarHost, ok := os.LookupEnv("OSCAR_HOST"); ok {
+		OSCAR_HOST = oscarHost
+	}
+	var oscarHost string
+	flag.StringVar(&oscarHost, "host", OSCAR_HOST, "Server hostname")
+
+	if oscarPort, ok := os.LookupEnv("OSCAR_PORT"); ok {
+		OSCAR_PORT = oscarPort
+	}
+	var oscarPort string
+	flag.StringVar(&oscarPort, "port", OSCAR_PORT, "Server port")
+
+	if oscarBOSHost, ok := os.LookupEnv("OSCAR_BOS_HOST"); ok {
+		OSCAR_BOS_HOST = oscarBOSHost
+	}
+	var oscarBOSHost string
+	flag.StringVar(&oscarBOSHost, "boshost", OSCAR_BOS_HOST, "BOS hostname")
+
+	if oscarBOSPort, ok := os.LookupEnv("OSCAR_BOS_PORT"); ok {
+		OSCAR_BOS_PORT = oscarBOSPort
+	}
+	var oscarBOSPort string
+	flag.StringVar(&oscarBOSPort, "bosport", OSCAR_BOS_PORT, "BOS port")
+
+	flag.Parse()
+
+	OSCAR_HOST = oscarHost
+	OSCAR_PORT = oscarPort
+	OSCAR_ADDRESS = OSCAR_HOST + ":" + OSCAR_PORT
+
+	OSCAR_BOS_HOST = oscarBOSHost
+	OSCAR_BOS_PORT = oscarBOSPort
+	OSCAR_BOS_ADDRESS = OSCAR_BOS_HOST + ":" + OSCAR_BOS_PORT
+}
+
 func main() {
+
 	// Set up the DB
 	sqldb, err := sql.Open(sqliteshim.ShimName, "file:aim.db")
 	if err != nil {
@@ -53,7 +94,7 @@ func main() {
 		panic(err)
 	}
 
-	listener, err := net.Listen("tcp", SRV_ADDRESS)
+	listener, err := net.Listen("tcp", OSCAR_ADDRESS)
 	if err != nil {
 		fmt.Println("Error listening: ", err.Error())
 		os.Exit(1)
@@ -71,11 +112,11 @@ func main() {
 	go onlineRoutine(db)
 
 	serviceManager := NewServiceManager()
-	serviceManager.RegisterService(0x01, &services.GenericServiceControls{OnlineCh: onlineCh})
+	serviceManager.RegisterService(0x01, &services.GenericServiceControls{OnlineCh: onlineCh, ServerHostname: OSCAR_ADDRESS})
 	serviceManager.RegisterService(0x02, &services.LocationServices{OnlineCh: onlineCh})
 	serviceManager.RegisterService(0x03, &services.BuddyListManagement{})
 	serviceManager.RegisterService(0x04, &services.ICBM{CommCh: commCh})
-	serviceManager.RegisterService(0x17, &services.AuthorizationRegistrationService{})
+	serviceManager.RegisterService(0x17, &services.AuthorizationRegistrationService{BOSAddress: OSCAR_BOS_ADDRESS})
 
 	handleCloseFn := func(ctx context.Context, session *oscar.Session) {
 		log.Printf("%v disconnected", session.RemoteAddr())
@@ -174,7 +215,8 @@ func main() {
 		os.Exit(1)
 	}()
 
-	fmt.Println("OSCAR listening on " + SRV_ADDRESS)
+	fmt.Println("OSCAR listening on " + OSCAR_ADDRESS)
+	fmt.Println("OSCAR BOS set to " + OSCAR_BOS_ADDRESS)
 	for {
 		conn, err := listener.Accept()
 		if err != nil {

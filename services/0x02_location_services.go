@@ -103,7 +103,7 @@ func (s *LocationServices) HandleSNAC(ctx context.Context, db *bun.DB, snac *osc
 		tlvs := []*oscar.TLV{
 			oscar.NewTLV(1, util.Dword(0)),                            // user class
 			oscar.NewTLV(6, util.Dword(uint32(requestedUser.Status))), // user status
-			// oscar.NewTLV(0x0a, util.Dword(binary.BigEndian.Uint32([]byte(SRV_HOST)))),                  // user external IP
+			// oscar.NewTLV(0x0a, util.Dword(binary.BigEndian.Uint32([]byte(OSCAR_HOST)))),                  // user external IP
 			oscar.NewTLV(0x0f, util.Dword(uint32(time.Since(requestedUser.LastActivityAt).Seconds()))), // idle time
 			oscar.NewTLV(0x03, util.Dword(uint32(time.Now().Unix()))),                                  // TODO: signon time
 			oscar.NewTLV(0x05, util.Dword(uint32(requestedUser.CreatedAt.Unix()))),                     // member since

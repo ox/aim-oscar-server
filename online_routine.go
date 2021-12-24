@@ -5,7 +5,6 @@ import (
 	"aim-oscar/oscar"
 	"aim-oscar/util"
 	"context"
-	"encoding/binary"
 	"log"
 	"time"
 
@@ -53,9 +52,9 @@ func OnlineNotification(sm *SessionManager) (chan *models.User, routineFn) {
 					onlineSnac.Data.WriteUint16(0) // TODO: user warning level
 
 					tlvs := []*oscar.TLV{
-						oscar.NewTLV(1, util.Word(0)),                                                     // TODO: user class
-						oscar.NewTLV(0x06, util.Dword(uint32(user.Status))),                               // TODO: User Status
-						oscar.NewTLV(0x0a, util.Dword(binary.BigEndian.Uint32([]byte(SRV_HOST)))),         // External IP
+						oscar.NewTLV(1, util.Word(0)),                       // TODO: user class
+						oscar.NewTLV(0x06, util.Dword(uint32(user.Status))), // TODO: User Status
+						// oscar.NewTLV(0x0a, util.Dword(binary.BigEndian.Uint32([]byte(OSCAR_HOST)))),       // TODO: External IP of the client?
 						oscar.NewTLV(0x0f, util.Dword(uint32(time.Since(user.LastActivityAt).Seconds()))), // Idle Time
 						oscar.NewTLV(0x03, util.Dword(uint32(time.Now().Unix()))),                         // Client Signon Time
 						oscar.NewTLV(0x05, util.Dword(uint32(user.CreatedAt.Unix()))),                     // Member since

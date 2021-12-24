@@ -27,7 +27,7 @@ type AuthorizationCookie struct {
 }
 
 type AuthorizationRegistrationService struct {
-	ServerHostname string
+	BOSAddress string
 }
 
 func AuthenticateFLAPCookie(ctx context.Context, db *bun.DB, flap *oscar.FLAP) (*models.User, error) {
@@ -176,7 +176,7 @@ func (a *AuthorizationRegistrationService) HandleSNAC(ctx context.Context, db *b
 		// Send BOS response + cookie
 		authSnac := oscar.NewSNAC(0x17, 0x3)
 		authSnac.Data.WriteBinary(usernameTLV)
-		authSnac.Data.WriteBinary(oscar.NewTLV(0x5, []byte(a.ServerHostname)))
+		authSnac.Data.WriteBinary(oscar.NewTLV(0x5, []byte(a.BOSAddress)))
 
 		cookie, err := json.Marshal(AuthorizationCookie{
 			UIN: user.UIN,
