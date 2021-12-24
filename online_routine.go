@@ -12,7 +12,7 @@ import (
 	"github.com/uptrace/bun"
 )
 
-func OnlineNotification() (chan *models.User, routineFn) {
+func OnlineNotification(sm *SessionManager) (chan *models.User, routineFn) {
 	commCh := make(chan *models.User, 1)
 
 	routine := func(db *bun.DB) {
@@ -47,7 +47,7 @@ func OnlineNotification() (chan *models.User, routineFn) {
 				}
 				log.Printf("telling %s that %s has a new status: %d!", buddy.Source.Username, user.Username, user.Status)
 
-				if s := getSession(buddy.Source.Username); s != nil {
+				if s := sm.GetSession(buddy.Source.Username); s != nil {
 					onlineSnac := oscar.NewSNAC(3, 0xb)
 					onlineSnac.Data.WriteLPString(user.Username)
 					onlineSnac.Data.WriteUint16(0) // TODO: user warning level

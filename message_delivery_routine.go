@@ -12,7 +12,7 @@ import (
 
 type routineFn func(db *bun.DB)
 
-func MessageDelivery() (chan *models.Message, routineFn) {
+func MessageDelivery(sm *SessionManager) (chan *models.Message, routineFn) {
 	commCh := make(chan *models.Message, 1)
 
 	routine := func(db *bun.DB) {
@@ -26,7 +26,7 @@ func MessageDelivery() (chan *models.Message, routineFn) {
 			}
 
 			log.Printf("got a message: %s", message)
-			if s := getSession(message.To); s != nil {
+			if s := sm.GetSession(message.To); s != nil {
 				messageSnac := oscar.NewSNAC(4, 7)
 				messageSnac.Data.WriteUint64(message.Cookie)
 				messageSnac.Data.WriteUint16(1)

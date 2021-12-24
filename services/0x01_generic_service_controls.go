@@ -1,4 +1,4 @@
-package main
+package services
 
 import (
 	"aim-oscar/aimerror"
@@ -13,19 +13,20 @@ import (
 	"github.com/uptrace/bun"
 )
 
-var versions map[uint16]uint16
+var ServiceVersions map[uint16]uint16
 
 func init() {
-	versions = make(map[uint16]uint16)
-	versions[1] = 3
-	versions[2] = 1
-	versions[3] = 1
-	versions[4] = 1
-	versions[17] = 1
+	ServiceVersions = make(map[uint16]uint16)
+	ServiceVersions[1] = 3
+	ServiceVersions[2] = 1
+	ServiceVersions[3] = 1
+	ServiceVersions[4] = 1
+	ServiceVersions[17] = 1
 }
 
 type GenericServiceControls struct {
-	OnlineCh chan *models.User
+	OnlineCh       chan *models.User
+	ServerHostname string
 }
 
 func (g *GenericServiceControls) HandleSNAC(ctx context.Context, db *bun.DB, snac *oscar.SNAC) (context.Context, error) {
@@ -63,7 +64,7 @@ func (g *GenericServiceControls) HandleSNAC(ctx context.Context, db *bun.DB, sna
 				tlvs := []*oscar.TLV{
 					oscar.NewTLV(1, util.Word(0)),                                                     // TODO: user class
 					oscar.NewTLV(0x06, util.Dword(uint32(user.Status))),                               // TODO: User Status
-					oscar.NewTLV(0x0a, util.Dword(binary.BigEndian.Uint32([]byte(SRV_HOST)))),         // External IP
+					oscar.NewTLV(0x0a, util.Dword(binary.BigEndian.Uint32([]byte(g.ServerHostname)))), // External IP
 					oscar.NewTLV(0x0f, util.Dword(uint32(time.Since(user.LastActivityAt).Seconds()))), // Idle Time
 					oscar.NewTLV(0x03, util.Dword(uint32(time.Now().Unix()))),                         // Client Signon Time
 					oscar.NewTLV(0x05, util.Dword(uint32(user.CreatedAt.Unix()))),                     // Member since
@@ -111,8 +112,8 @@ func (g *GenericServiceControls) HandleSNAC(ctx context.Context, db *bun.DB, sna
 
 		// TODO: make actual rate groups instead of this hack. I can't tell which subtypes are supported so
 		// make it set rate limits for everything family for all subtypes under 0x21.
-		rg.WriteUint16(uint16(len(versions)) * 0x21) // Number of rate groups
-		for family := range versions {
+		rg.WriteUint16(uint16(len(ServiceVersions)) * 0x21) // Number of rate groups
+		for family := range ServiceVersions {
 			for subtype := 0; subtype < 0x21; subtype++ {
 				rg.WriteUint16(family)
 				rg.WriteUint16(uint16(subtype))
@@ -144,7 +145,7 @@ func (g *GenericServiceControls) HandleSNAC(ctx context.Context, db *bun.DB, sna
 		tlvs := []*oscar.TLV{
 			oscar.NewTLV(0x01, util.Dword(0)),                                                 // User Class
 			oscar.NewTLV(0x06, util.Dword(uint32(user.Status))),                               // TODO: User Status
-			oscar.NewTLV(0x0a, util.Dword(binary.BigEndian.Uint32([]byte(SRV_HOST)))),         // External IP
+			oscar.NewTLV(0x0a, util.Dword(binary.BigEndian.Uint32([]byte(g.ServerHostname)))), // External IP
 			oscar.NewTLV(0x0f, util.Dword(uint32(time.Since(user.LastActivityAt).Seconds()))), // Idle Time
 			oscar.NewTLV(0x03, util.Dword(uint32(time.Now().Unix()))),                         // Client Signon Time
 			oscar.NewTLV(0x01e, util.Dword(0x0)),                                              // Unknown value
@@ -160,10 +161,10 @@ func (g *GenericServiceControls) HandleSNAC(ctx context.Context, db *bun.DB, sna
 		onlineFlap.Data.WriteBinary(onlineSnac)
 		return models.NewContextWithUser(ctx, user), session.Send(onlineFlap)
 
-	// Client wants to know the versions of all of the services offered
+	// Client wants to know the ServiceVersions of all of the services offered
 	case 0x17:
 		versionsSnac := oscar.NewSNAC(1, 0x18)
-		for family, version := range versions {
+		for family, version := range ServiceVersions {
 			versionsSnac.Data.WriteUint16(family)
 			versionsSnac.Data.WriteUint16(version)
 		}

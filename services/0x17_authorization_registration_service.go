@@ -1,4 +1,4 @@
-package main
+package services
 
 import (
 	"bytes"
@@ -26,7 +26,9 @@ type AuthorizationCookie struct {
 	X   string
 }
 
-type AuthorizationRegistrationService struct{}
+type AuthorizationRegistrationService struct {
+	ServerHostname string
+}
 
 func AuthenticateFLAPCookie(ctx context.Context, db *bun.DB, flap *oscar.FLAP) (*models.User, error) {
 	// Otherwise this is a protocol negotiation from the client. They're likely trying to connect
@@ -174,7 +176,7 @@ func (a *AuthorizationRegistrationService) HandleSNAC(ctx context.Context, db *b
 		// Send BOS response + cookie
 		authSnac := oscar.NewSNAC(0x17, 0x3)
 		authSnac.Data.WriteBinary(usernameTLV)
-		authSnac.Data.WriteBinary(oscar.NewTLV(0x5, []byte(SRV_ADDRESS)))
+		authSnac.Data.WriteBinary(oscar.NewTLV(0x5, []byte(a.ServerHostname)))
 
 		cookie, err := json.Marshal(AuthorizationCookie{
 			UIN: user.UIN,

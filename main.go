@@ -3,6 +3,7 @@ package main
 import (
 	"aim-oscar/models"
 	"aim-oscar/oscar"
+	"aim-oscar/services"
 	"aim-oscar/util"
 	"bytes"
 	"context"
@@ -12,7 +13,6 @@ import (
 	"net"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 	"time"
 
@@ -25,36 +25,10 @@ import (
 )
 
 const (
-	SRV_HOST    = "10.0.1.2"
+	SRV_HOST    = "0.0.0.0"
 	SRV_PORT    = "5190"
 	SRV_ADDRESS = SRV_HOST + ":" + SRV_PORT
 )
-
-var services map[uint16]Service
-
-// Map username to session
-var sessions map[string]*oscar.Session
-var sessionsMutex = &sync.RWMutex{}
-
-func getSession(username string) *oscar.Session {
-	sessionsMutex.RLock()
-	s, ok := sessions[username]
-	sessionsMutex.RUnlock()
-
-	if ok {
-		return s
-	}
-	return nil
-}
-
-func init() {
-	services = make(map[uint16]Service)
-	sessions = make(map[string]*oscar.Session)
-}
-
-func RegisterService(family uint16, service Service) {
-	services[family] = service
-}
 
 func main() {
 	// Set up the DB
@@ -86,13 +60,22 @@ func main() {
 	}
 	defer listener.Close()
 
+	sessionManager := NewSessionManager()
+
 	// Goroutine that listens for messages to deliver and tries to find a user socket to push them to
-	commCh, messageRoutine := MessageDelivery()
+	commCh, messageRoutine := MessageDelivery(sessionManager)
 	go messageRoutine(db)
 
 	// Goroutine that listens for users who change their online status and notifies their buddies
-	onlineCh, onlineRoutine := OnlineNotification()
+	onlineCh, onlineRoutine := OnlineNotification(sessionManager)
 	go onlineRoutine(db)
+
+	serviceManager := NewServiceManager()
+	serviceManager.RegisterService(0x01, &services.GenericServiceControls{OnlineCh: onlineCh})
+	serviceManager.RegisterService(0x02, &services.LocationServices{OnlineCh: onlineCh})
+	serviceManager.RegisterService(0x03, &services.BuddyListManagement{})
+	serviceManager.RegisterService(0x04, &services.ICBM{CommCh: commCh})
+	serviceManager.RegisterService(0x17, &services.AuthorizationRegistrationService{})
 
 	handleCloseFn := func(ctx context.Context, session *oscar.Session) {
 		log.Printf("%v disconnected", session.RemoteAddr())
@@ -108,6 +91,8 @@ func main() {
 			if true {
 				onlineCh <- user
 			}
+
+			sessionManager.RemoveSession(user.Username)
 		}
 	}
 
@@ -121,7 +106,7 @@ func main() {
 			fmt.Printf("%s (%v) ->\n%+v\n", user.Username, session.RemoteAddr(), flap)
 			user.LastActivityAt = time.Now()
 			ctx = models.NewContextWithUser(ctx, user)
-			sessions[user.Username] = session
+			sessionManager.SetSession(user.Username, session)
 		} else {
 			fmt.Printf("%v ->\n%+v\n", session.RemoteAddr(), flap)
 		}
@@ -132,7 +117,7 @@ func main() {
 				return ctx
 			}
 
-			user, err := AuthenticateFLAPCookie(ctx, db, flap)
+			user, err := services.AuthenticateFLAPCookie(ctx, db, flap)
 			if err != nil {
 				log.Printf("Could not authenticate cookie: %s", err)
 				return ctx
@@ -141,7 +126,7 @@ func main() {
 
 			// Send available services
 			servicesSnac := oscar.NewSNAC(1, 3)
-			for family := range versions {
+			for family := range services.ServiceVersions {
 				servicesSnac.Data.WriteUint16(family)
 			}
 
@@ -164,7 +149,7 @@ func main() {
 				fmt.Printf("%s\n\n", util.PrettyBytes(snac.Data.Bytes()))
 			}
 
-			if service, ok := services[snac.Header.Family]; ok {
+			if service, ok := serviceManager.GetService(snac.Header.Family); ok {
 				newCtx, err := service.HandleSNAC(ctx, db, snac)
 				util.PanicIfError(err)
 				return newCtx
@@ -178,12 +163,6 @@ func main() {
 	}
 
 	handler := oscar.NewHandler(handleFn, handleCloseFn)
-
-	RegisterService(0x01, &GenericServiceControls{OnlineCh: onlineCh})
-	RegisterService(0x02, &LocationServices{OnlineCh: onlineCh})
-	RegisterService(0x03, &BuddyListManagement{})
-	RegisterService(0x04, &ICBM{CommCh: commCh})
-	RegisterService(0x17, &AuthorizationRegistrationService{})
 
 	exitChan := make(chan os.Signal, 1)
 	signal.Notify(exitChan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM, syscall.SIGABRT)

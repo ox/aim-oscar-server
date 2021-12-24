@@ -8,7 +8,8 @@ Run your own AIM chat server, managing users and groups. Hook up a vintage clien
 - [x] Add buddies
 - [x] See buddy online/away status
 - [x] Chat with buddy
-- [ ] Set away status
+- [x] Set away status
+- [ ] See away status
 - [ ] Look up buddy
 - [ ] Buddy icons
 - [ ] Rate limiting + warn system
