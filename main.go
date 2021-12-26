@@ -7,21 +7,24 @@ import (
 	"aim-oscar/util"
 	"bytes"
 	"context"
+	"crypto/tls"
 	"database/sql"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/pkg/errors"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dbfixture"
-	"github.com/uptrace/bun/dialect/sqlitedialect"
-	"github.com/uptrace/bun/driver/sqliteshim"
+	"github.com/uptrace/bun/dialect/pgdialect"
+	"github.com/uptrace/bun/driver/pgdriver"
 	"github.com/uptrace/bun/extra/bundebug"
 )
 
@@ -32,6 +35,11 @@ var (
 	OSCAR_BOS_HOST    = OSCAR_HOST
 	OSCAR_BOS_PORT    = OSCAR_PORT
 	OSCAR_BOS_ADDRESS = OSCAR_BOS_HOST + ":" + OSCAR_BOS_PORT
+	DB_URL            = ""
+	DB_USER           = ""
+	DB_USER_FILE      = ""
+	DB_PASSWORD       = ""
+	DB_PASSWORD_FILE  = ""
 )
 
 func init() {
@@ -59,6 +67,18 @@ func init() {
 	var oscarBOSPort string
 	flag.StringVar(&oscarBOSPort, "bosport", OSCAR_BOS_PORT, "BOS port")
 
+	if dbUrl, ok := os.LookupEnv("DB_URL"); ok {
+		DB_URL = dbUrl
+	}
+
+	if dbUserFile, ok := os.LookupEnv("DB_USER_FILE"); ok {
+		DB_USER_FILE = dbUserFile
+	}
+
+	if dbPasswordFile, ok := os.LookupEnv("DB_PASSWORD_FILE"); ok {
+		DB_PASSWORD_FILE = dbPasswordFile
+	}
+
 	flag.Parse()
 
 	OSCAR_HOST = oscarHost
@@ -68,16 +88,50 @@ func init() {
 	OSCAR_BOS_HOST = oscarBOSHost
 	OSCAR_BOS_PORT = oscarBOSPort
 	OSCAR_BOS_ADDRESS = OSCAR_BOS_HOST + ":" + OSCAR_BOS_PORT
-}
 
-func main() {
+	log.Println(os.Environ())
 
-	// Set up the DB
-	sqldb, err := sql.Open(sqliteshim.ShimName, "file:aim.db")
+	if DB_URL == "" {
+		log.Fatalln("DB Url not specified")
+	}
+
+	dbUser, err := ioutil.ReadFile(DB_USER_FILE)
 	if err != nil {
 		panic(err)
 	}
-	db := bun.NewDB(sqldb, sqlitedialect.New())
+	DB_USER = strings.TrimSpace(string(dbUser))
+	if DB_USER == "" {
+		log.Fatalln("DB User not specified")
+	}
+
+	dbPassword, err := ioutil.ReadFile(DB_PASSWORD_FILE)
+	if err != nil {
+		panic(err)
+	}
+	DB_PASSWORD = strings.TrimSpace(string(dbPassword))
+	if DB_PASSWORD == "" {
+		log.Fatalln("DB password not specified")
+	}
+}
+
+func main() {
+	pgconn := pgdriver.NewConnector(
+		pgdriver.WithNetwork("tcp"),
+		pgdriver.WithAddr(DB_URL),
+		pgdriver.WithTLSConfig(&tls.Config{InsecureSkipVerify: true}),
+		pgdriver.WithUser(DB_USER),
+		pgdriver.WithPassword(DB_PASSWORD),
+		pgdriver.WithDatabase("postgres"),
+		pgdriver.WithInsecure(true),
+		pgdriver.WithTimeout(5*time.Second),
+		pgdriver.WithDialTimeout(5*time.Second),
+		pgdriver.WithReadTimeout(5*time.Second),
+		pgdriver.WithWriteTimeout(5*time.Second),
+	)
+
+	// Set up the DB
+	sqldb := sql.OpenDB(pgconn)
+	db := bun.NewDB(sqldb, pgdialect.New())
 	db.SetConnMaxIdleTime(15 * time.Second)
 	db.SetConnMaxLifetime(1 * time.Minute)
 
@@ -89,7 +143,7 @@ func main() {
 
 	// dev: load in fixtures to test against
 	fixture := dbfixture.New(db, dbfixture.WithRecreateTables())
-	err = fixture.Load(context.Background(), os.DirFS("./models"), "fixtures.yml")
+	err := fixture.Load(context.Background(), os.DirFS("./models"), "fixtures.yml")
 	if err != nil {
 		panic(err)
 	}
