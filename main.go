@@ -11,7 +11,6 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net"
 	"os"
@@ -37,9 +36,7 @@ var (
 	OSCAR_BOS_ADDRESS = OSCAR_BOS_HOST + ":" + OSCAR_BOS_PORT
 	DB_URL            = ""
 	DB_USER           = ""
-	DB_USER_FILE      = ""
 	DB_PASSWORD       = ""
-	DB_PASSWORD_FILE  = ""
 )
 
 func init() {
@@ -68,15 +65,15 @@ func init() {
 	flag.StringVar(&oscarBOSPort, "bosport", OSCAR_BOS_PORT, "BOS port")
 
 	if dbUrl, ok := os.LookupEnv("DB_URL"); ok {
-		DB_URL = dbUrl
+		DB_URL = strings.TrimSpace(dbUrl)
 	}
 
-	if dbUserFile, ok := os.LookupEnv("DB_USER_FILE"); ok {
-		DB_USER_FILE = dbUserFile
+	if dbUser, ok := os.LookupEnv("DB_USER"); ok {
+		DB_USER = strings.TrimSpace(dbUser)
 	}
 
-	if dbPasswordFile, ok := os.LookupEnv("DB_PASSWORD_FILE"); ok {
-		DB_PASSWORD_FILE = dbPasswordFile
+	if dbPassword, ok := os.LookupEnv("DB_PASSWORD"); ok {
+		DB_PASSWORD = strings.TrimSpace(dbPassword)
 	}
 
 	flag.Parse()
@@ -89,26 +86,14 @@ func init() {
 	OSCAR_BOS_PORT = oscarBOSPort
 	OSCAR_BOS_ADDRESS = OSCAR_BOS_HOST + ":" + OSCAR_BOS_PORT
 
-	log.Println(os.Environ())
-
 	if DB_URL == "" {
 		log.Fatalln("DB Url not specified")
 	}
 
-	dbUser, err := ioutil.ReadFile(DB_USER_FILE)
-	if err != nil {
-		panic(err)
-	}
-	DB_USER = strings.TrimSpace(string(dbUser))
 	if DB_USER == "" {
 		log.Fatalln("DB User not specified")
 	}
 
-	dbPassword, err := ioutil.ReadFile(DB_PASSWORD_FILE)
-	if err != nil {
-		panic(err)
-	}
-	DB_PASSWORD = strings.TrimSpace(string(dbPassword))
 	if DB_PASSWORD == "" {
 		log.Fatalln("DB password not specified")
 	}
@@ -177,16 +162,13 @@ func main() {
 
 		user := models.UserFromContext(ctx)
 		if user != nil {
-			// tellBuddies := user.Status != models.UserStatusAway
 			user.Status = models.UserStatusAway
+			user.Cipher = ""
 			if err := user.Update(ctx, db); err != nil {
 				log.Print(errors.Wrap(err, "could not set user as inactive"))
 			}
 
-			if true {
-				onlineCh <- user
-			}
-
+			onlineCh <- user
 			sessionManager.RemoveSession(user.Username)
 		}
 	}
