@@ -16,16 +16,18 @@ type Message struct {
 	From          string
 	To            string
 	Contents      string
+	StoreOffline  bool
 	CreatedAt     time.Time `bun:",nullzero,notnull,default:current_timestamp"`
 	DeliveredAt   time.Time `bun:",nullzero"`
 }
 
 func InsertMessage(ctx context.Context, db *bun.DB, cookie uint64, from string, to string, contents string) (*Message, error) {
 	msg := &Message{
-		Cookie:   cookie,
-		From:     from,
-		To:       to,
-		Contents: contents,
+		Cookie:       cookie,
+		From:         from,
+		To:           to,
+		Contents:     contents,
+		StoreOffline: true,
 	}
 	if _, err := db.NewInsert().Model(msg).Exec(ctx, msg); err != nil {
 		return nil, errors.Wrap(err, "could not update user")

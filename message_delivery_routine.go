@@ -68,8 +68,10 @@ func MessageDelivery(sm *SessionManager) (chan *models.Message, routineFn) {
 					log.Printf("sent message %d to user %s at %s", message.Cookie, message.To, s.RemoteAddr())
 				}
 
-				if err := message.MarkDelivered(context.Background(), db); err != nil {
-					log.Panicf("could not mark message %d as delivered: %s", message.Cookie, err.Error())
+				if message.StoreOffline {
+					if err := message.MarkDelivered(context.Background(), db); err != nil {
+						log.Panicf("could not mark message %d as delivered: %s", message.Cookie, err.Error())
+					}
 				}
 			} else {
 				log.Printf("could not find session for user %s", message.To)

@@ -176,9 +176,22 @@ func (icbm *ICBM) HandleSNAC(ctx context.Context, db *bun.DB, snac *oscar.SNAC) 
 			return ctx, errors.New("read insufficient data from message fragment")
 		}
 
-		message, err := models.InsertMessage(ctx, db, msgID, user.Username, to, string(messageContents))
-		if err != nil {
-			return ctx, errors.Wrap(err, "could not insert message")
+		var message *models.Message
+
+		// TLV 0x6 is the client telling the server to store the message if the recipient is offline
+		saveofflineTLV := oscar.FindTLV(tlvs, 6)
+		if saveofflineTLV != nil {
+			message, err = models.InsertMessage(ctx, db, msgID, user.Username, to, string(messageContents))
+			if err != nil {
+				return ctx, errors.Wrap(err, "could not insert message")
+			}
+		} else {
+			message = &models.Message{
+				Cookie:   msgID,
+				From:     user.Username,
+				To:       to,
+				Contents: string(messageContents),
+			}
 		}
 
 		// Fire the message off into the communication channel to get delivered
