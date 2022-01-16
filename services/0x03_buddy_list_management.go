@@ -43,7 +43,7 @@ func (b *BuddyListManagement) HandleSNAC(ctx context.Context, db *bun.DB, snac *
 				return ctx, errors.Wrap(err, "expecting more buddies in list")
 			}
 
-			buddy, err := models.UserByUsername(ctx, db, buddyScreename)
+			buddy, err := models.UserByScreenName(ctx, db, buddyScreename)
 			if err != nil {
 				return ctx, errors.Wrap(err, "error looking for User")
 			}
@@ -61,7 +61,7 @@ func (b *BuddyListManagement) HandleSNAC(ctx context.Context, db *bun.DB, snac *
 				return ctx, err
 			}
 
-			log.Printf("%s added buddy %s to buddy list", user.Username, buddyScreename)
+			log.Printf("%s added buddy %s to buddy list", user.ScreenName, buddyScreename)
 		}
 
 		return ctx, nil
@@ -79,7 +79,7 @@ func (b *BuddyListManagement) HandleSNAC(ctx context.Context, db *bun.DB, snac *
 				return ctx, errors.Wrap(err, "expecting more buddies in list")
 			}
 
-			buddy, err := models.UserByUsername(ctx, db, buddyScreename)
+			buddy, err := models.UserByScreenName(ctx, db, buddyScreename)
 			if err != nil {
 				return ctx, errors.Wrap(err, "error looking for User")
 			}
@@ -92,7 +92,7 @@ func (b *BuddyListManagement) HandleSNAC(ctx context.Context, db *bun.DB, snac *
 				return ctx, err
 			}
 
-			log.Printf("%s removed buddy %s from buddy list", user.Username, buddyScreename)
+			log.Printf("%s removed buddy %s from buddy list", user.ScreenName, buddyScreename)
 		}
 
 		return ctx, nil

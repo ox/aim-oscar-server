@@ -25,9 +25,9 @@ func OnlineNotification(sm *SessionManager) (chan *models.User, routineFn) {
 			}
 
 			if user.Status == models.UserStatusOnline {
-				log.Printf("%s is now online", user.Username)
+				log.Printf("%s is now online", user.ScreenName)
 			} else if user.Status == models.UserStatusAway {
-				log.Printf("%s is now away", user.Username)
+				log.Printf("%s is now away", user.ScreenName)
 			}
 
 			ctx := context.Background()
@@ -44,11 +44,11 @@ func OnlineNotification(sm *SessionManager) (chan *models.User, routineFn) {
 				if buddy.Source.Status == models.UserStatusAway || buddy.Source.Status == models.UserStatusDnd {
 					continue
 				}
-				log.Printf("telling %s that %s has a new status: %d!", buddy.Source.Username, user.Username, user.Status)
+				log.Printf("telling %s that %s has a new status: %d!", buddy.Source.ScreenName, user.ScreenName, user.Status)
 
-				if s := sm.GetSession(buddy.Source.Username); s != nil {
+				if s := sm.GetSession(buddy.Source.ScreenName); s != nil {
 					onlineSnac := oscar.NewSNAC(3, 0xb)
-					onlineSnac.Data.WriteLPString(user.Username)
+					onlineSnac.Data.WriteLPString(user.ScreenName)
 					onlineSnac.Data.WriteUint16(0) // TODO: user warning level
 
 					tlvs := []*oscar.TLV{
@@ -68,7 +68,7 @@ func OnlineNotification(sm *SessionManager) (chan *models.User, routineFn) {
 					onlineFlap := oscar.NewFLAP(2)
 					onlineFlap.Data.WriteBinary(onlineSnac)
 					if err := s.Send(onlineFlap); err != nil {
-						log.Printf("could not tell %s that %s is online", buddy.Source.Username, user.Username)
+						log.Printf("could not tell %s that %s is online", buddy.Source.ScreenName, user.ScreenName)
 					}
 				}
 			}

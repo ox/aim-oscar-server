@@ -57,7 +57,7 @@ func (g *GenericServiceControls) HandleSNAC(ctx context.Context, db *bun.DB, sna
 				}
 
 				onlineSnac := oscar.NewSNAC(3, 0xb)
-				onlineSnac.Data.WriteLPString(buddy.Source.Username)
+				onlineSnac.Data.WriteLPString(buddy.Source.ScreenName)
 				onlineSnac.Data.WriteUint16(0) // TODO: user warning level
 
 				tlvs := []*oscar.TLV{
@@ -77,7 +77,7 @@ func (g *GenericServiceControls) HandleSNAC(ctx context.Context, db *bun.DB, sna
 				onlineFlap := oscar.NewFLAP(2)
 				onlineFlap.Data.WriteBinary(onlineSnac)
 				if err := session.Send(onlineFlap); err != nil {
-					return ctx, errors.Wrapf(err, "could not tell %s that %s is online", buddy.Source.Username, buddy.Target.Username)
+					return ctx, errors.Wrapf(err, "could not tell %s that %s is online", buddy.Source.ScreenName, buddy.Target.ScreenName)
 				}
 			}
 
@@ -132,8 +132,8 @@ func (g *GenericServiceControls) HandleSNAC(ctx context.Context, db *bun.DB, sna
 		}
 
 		onlineSnac := oscar.NewSNAC(1, 0xf)
-		onlineSnac.Data.WriteUint8(uint8(len(user.Username)))
-		onlineSnac.Data.WriteString(user.Username)
+		onlineSnac.Data.WriteUint8(uint8(len(user.ScreenName)))
+		onlineSnac.Data.WriteString(user.ScreenName)
 		onlineSnac.Data.WriteUint16(0) // warning level
 
 		user.Status = models.UserStatusOnline

@@ -18,15 +18,15 @@ func NewSessionManager() *SessionManager {
 	return sm
 }
 
-func (sm *SessionManager) SetSession(username string, session *oscar.Session) {
+func (sm *SessionManager) SetSession(screen_name string, session *oscar.Session) {
 	sm.mutex.Lock()
-	sm.sessions[username] = session
+	sm.sessions[screen_name] = session
 	sm.mutex.Unlock()
 }
 
-func (sm *SessionManager) GetSession(username string) *oscar.Session {
+func (sm *SessionManager) GetSession(screen_name string) *oscar.Session {
 	sm.mutex.RLock()
-	s, ok := sm.sessions[username]
+	s, ok := sm.sessions[screen_name]
 	sm.mutex.RUnlock()
 
 	if ok {
@@ -35,8 +35,8 @@ func (sm *SessionManager) GetSession(username string) *oscar.Session {
 	return nil
 }
 
-func (sm *SessionManager) RemoveSession(username string) {
+func (sm *SessionManager) RemoveSession(screen_name string) {
 	sm.mutex.Lock()
-	sm.sessions[username] = nil
+	sm.sessions[screen_name] = nil
 	sm.mutex.Unlock()
 }

@@ -114,6 +114,8 @@ func main() {
 		pgdriver.WithWriteTimeout(5*time.Second),
 	)
 
+	log.Printf("DB URL: %s", DB_URL)
+
 	// Set up the DB
 	sqldb := sql.OpenDB(pgconn)
 	db := bun.NewDB(sqldb, pgdialect.New())
@@ -124,7 +126,7 @@ func main() {
 	db.AddQueryHook(bundebug.NewQueryHook(bundebug.WithVerbose(true)))
 
 	// Register our DB models
-	db.RegisterModel((*models.User)(nil), (*models.Message)(nil), (*models.Buddy)(nil))
+	db.RegisterModel((*models.User)(nil), (*models.Message)(nil), (*models.Buddy)(nil), (*models.EmailVerification)(nil))
 
 	// dev: load in fixtures to test against
 	fixture := dbfixture.New(db, dbfixture.WithRecreateTables())
@@ -169,7 +171,7 @@ func main() {
 			}
 
 			onlineCh <- user
-			sessionManager.RemoveSession(user.Username)
+			sessionManager.RemoveSession(user.ScreenName)
 		}
 	}
 
@@ -180,10 +182,10 @@ func main() {
 		}
 
 		if user := models.UserFromContext(ctx); user != nil {
-			fmt.Printf("%s (%v) ->\n%+v\n", user.Username, session.RemoteAddr(), flap)
+			fmt.Printf("%s (%v) ->\n%+v\n", user.ScreenName, session.RemoteAddr(), flap)
 			user.LastActivityAt = time.Now()
 			ctx = models.NewContextWithUser(ctx, user)
-			sessionManager.SetSession(user.Username, session)
+			sessionManager.SetSession(user.ScreenName, session)
 		} else {
 			fmt.Printf("%v ->\n%+v\n", session.RemoteAddr(), flap)
 		}

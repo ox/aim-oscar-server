@@ -181,14 +181,14 @@ func (icbm *ICBM) HandleSNAC(ctx context.Context, db *bun.DB, snac *oscar.SNAC) 
 		// TLV 0x6 is the client telling the server to store the message if the recipient is offline
 		saveofflineTLV := oscar.FindTLV(tlvs, 6)
 		if saveofflineTLV != nil {
-			message, err = models.InsertMessage(ctx, db, msgID, user.Username, to, string(messageContents))
+			message, err = models.InsertMessage(ctx, db, msgID, user.ScreenName, to, string(messageContents))
 			if err != nil {
 				return ctx, errors.Wrap(err, "could not insert message")
 			}
 		} else {
 			message = &models.Message{
 				Cookie:   msgID,
-				From:     user.Username,
+				From:     user.ScreenName,
 				To:       to,
 				Contents: string(messageContents),
 			}
@@ -204,7 +204,7 @@ func (icbm *ICBM) HandleSNAC(ctx context.Context, db *bun.DB, snac *oscar.SNAC) 
 			ackSnac := oscar.NewSNAC(4, 0xc)
 			ackSnac.Data.WriteUint64(msgID)
 			ackSnac.Data.WriteUint16(2)
-			ackSnac.Data.WriteLPString(user.Username)
+			ackSnac.Data.WriteLPString(user.ScreenName)
 			ackFlap := oscar.NewFLAP(2)
 			ackFlap.Data.WriteBinary(ackSnac)
 			return ctx, session.Send(ackFlap)

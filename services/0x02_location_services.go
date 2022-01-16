@@ -86,18 +86,18 @@ func (s *LocationServices) HandleSNAC(ctx context.Context, db *bun.DB, snac *osc
 			return ctx, errors.Wrap(err, "missing request type")
 		}
 
-		requestedUsername, err := snac.Data.ReadLPString()
+		requestedScreenName, err := snac.Data.ReadLPString()
 		if err != nil {
-			return ctx, errors.Wrap(err, "missing requested username")
+			return ctx, errors.Wrap(err, "missing requested screen_name")
 		}
 
-		requestedUser, err := models.UserByUsername(ctx, db, requestedUsername)
+		requestedUser, err := models.UserByScreenName(ctx, db, requestedScreenName)
 		if err != nil {
-			return ctx, aimerror.FetchingUser(err, requestedUsername)
+			return ctx, aimerror.FetchingUser(err, requestedScreenName)
 		}
 
 		respSnac := oscar.NewSNAC(2, 6)
-		respSnac.Data.WriteLPString(requestedUser.Username)
+		respSnac.Data.WriteLPString(requestedUser.ScreenName)
 		respSnac.Data.WriteUint16(0) // TODO: warning level
 
 		tlvs := []*oscar.TLV{

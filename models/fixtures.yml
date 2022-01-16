@@ -1,14 +1,20 @@
 - model: User
   rows:
-    - uin: 1
-      username: toof
+    - uin: 10000
+      screen_name: toof
       password: bar
       email: toof@example.com
-    - uin: 2
-      username: artem
+      verified: true
+    - uin: 10001
+      screen_name: artem
       password: bar
       email: artem@example.com
+      verified: false
 - model: Message
   rows: []
 - model: Buddy
   rows: []
+- model: EmailVerification
+  rows:
+    - user_uin: 2
+      token: foobar

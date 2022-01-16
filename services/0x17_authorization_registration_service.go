@@ -88,19 +88,19 @@ func (a *AuthorizationRegistrationService) HandleSNAC(ctx context.Context, db *b
 		tlvs, err := oscar.UnmarshalTLVs(snac.Data.Bytes())
 		util.PanicIfError(err)
 
-		usernameTLV := oscar.FindTLV(tlvs, 1)
-		if usernameTLV == nil {
-			return ctx, errors.New("missing username TLV")
+		screenNameTLV := oscar.FindTLV(tlvs, 1)
+		if screenNameTLV == nil {
+			return ctx, errors.New("missing screen_name TLV")
 		}
 
 		// Fetch the user
-		user, err := models.UserByUsername(ctx, db, string(usernameTLV.Data))
+		user, err := models.UserByScreenName(ctx, db, string(screenNameTLV.Data))
 		if err != nil {
 			return ctx, err
 		}
 		if user == nil {
 			snac := oscar.NewSNAC(0x17, 0x03)
-			snac.Data.WriteBinary(usernameTLV)
+			snac.Data.WriteBinary(screenNameTLV)
 			snac.Data.WriteBinary(oscar.NewTLV(0x08, []byte{0, 4}))
 			resp := oscar.NewFLAP(2)
 			resp.Data.WriteBinary(snac)
@@ -126,21 +126,21 @@ func (a *AuthorizationRegistrationService) HandleSNAC(ctx context.Context, db *b
 		tlvs, err := oscar.UnmarshalTLVs(snac.Data.Bytes())
 		util.PanicIfError(err)
 
-		usernameTLV := oscar.FindTLV(tlvs, 1)
-		if usernameTLV == nil {
-			return ctx, errors.New("missing username TLV 0x1")
+		screenNameTLV := oscar.FindTLV(tlvs, 1)
+		if screenNameTLV == nil {
+			return ctx, errors.New("missing screen_name TLV 0x1")
 		}
 
-		username := string(usernameTLV.Data)
+		screen_name := string(screenNameTLV.Data)
 		ctx := context.Background()
-		user, err := models.UserByUsername(ctx, db, username)
+		user, err := models.UserByScreenName(ctx, db, screen_name)
 		if err != nil {
 			return ctx, err
 		}
 
 		if user == nil {
 			snac := oscar.NewSNAC(0x17, 0x03)
-			snac.Data.WriteBinary(usernameTLV)
+			snac.Data.WriteBinary(screenNameTLV)
 			snac.Data.WriteBinary(oscar.NewTLV(0x08, []byte{0, 4}))
 			resp := oscar.NewFLAP(2)
 			resp.Data.WriteBinary(snac)
@@ -162,8 +162,24 @@ func (a *AuthorizationRegistrationService) HandleSNAC(ctx context.Context, db *b
 		if !bytes.Equal(expectedPasswordHash, passwordHashTLV.Data) {
 			// Tell the client this was a bad password
 			badPasswordSnac := oscar.NewSNAC(0x17, 0x03)
-			badPasswordSnac.Data.WriteBinary(usernameTLV)
-			badPasswordSnac.Data.WriteBinary(oscar.NewTLV(0x08, []byte{0, 4}))
+			badPasswordSnac.Data.WriteBinary(screenNameTLV)
+			badPasswordSnac.Data.WriteBinary(oscar.NewTLV(0x08, []byte{0, 4})) // incorrect nick/pass
+			badPasswordFlap := oscar.NewFLAP(2)
+			badPasswordFlap.Data.WriteBinary(badPasswordSnac)
+			session.Send(badPasswordFlap)
+
+			// Tell them to leave
+			discoFlap := oscar.NewFLAP(4)
+			return ctx, session.Send(discoFlap)
+		}
+
+		// Only users that have verified their email can use the service
+		if !user.Verified || user.DeletedAt != nil {
+			// Tell the client this was a bad password
+			badPasswordSnac := oscar.NewSNAC(0x17, 0x03)
+			badPasswordSnac.Data.WriteBinary(screenNameTLV)
+			badPasswordSnac.Data.WriteBinary(oscar.NewTLV(0x08, []byte{0, 7})) // invalid account
+			badPasswordSnac.Data.WriteBinary(oscar.NewTLV(0x04, []byte("http://runningman.network/errors/unverified-account")))
 			badPasswordFlap := oscar.NewFLAP(2)
 			badPasswordFlap.Data.WriteBinary(badPasswordSnac)
 			session.Send(badPasswordFlap)
@@ -175,7 +191,7 @@ func (a *AuthorizationRegistrationService) HandleSNAC(ctx context.Context, db *b
 
 		// Send BOS response + cookie
 		authSnac := oscar.NewSNAC(0x17, 0x3)
-		authSnac.Data.WriteBinary(usernameTLV)
+		authSnac.Data.WriteBinary(screenNameTLV)
 		authSnac.Data.WriteBinary(oscar.NewTLV(0x5, []byte(a.BOSAddress)))
 
 		cookie, err := json.Marshal(AuthorizationCookie{

@@ -25,12 +25,14 @@ type User struct {
 	bun.BaseModel       `bun:"table:users"`
 	UIN                 int64  `bun:",pk,autoincrement"`
 	Email               string `bun:",unique"`
-	Username            string `bun:",unique"`
+	ScreenName          string `bun:",unique"`
 	Password            string
 	Cipher              string
-	CreatedAt           time.Time `bun:",nullzero,notnull,default:current_timestamp"`
-	UpdatedAt           time.Time `bun:",nullzero,notnull,default:current_timestamp"`
+	CreatedAt           time.Time  `bun:",nullzero,notnull,default:current_timestamp"`
+	UpdatedAt           time.Time  `bun:",nullzero,notnull,default:current_timestamp"`
+	DeletedAt           *time.Time `bun:",nullzero"`
 	Status              UserStatus
+	Verified            bool `bun:",notnull,default:false"`
 	Profile             string
 	ProfileEncoding     string
 	AwayMessage         string
@@ -48,9 +50,9 @@ var (
 	currentUser = userKey("user")
 )
 
-func UserByUsername(ctx context.Context, db *bun.DB, username string) (*User, error) {
+func UserByScreenName(ctx context.Context, db *bun.DB, screen_name string) (*User, error) {
 	user := new(User)
-	if err := db.NewSelect().Model(user).Where("username = ?", username).Scan(ctx, user); err != nil {
+	if err := db.NewSelect().Model(user).Where("screen_name = ?", screen_name).Scan(ctx, user); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
