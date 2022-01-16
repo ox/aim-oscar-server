@@ -20,7 +20,7 @@ COPY go.mod go.sum /app/
 RUN go mod download
 COPY . /app
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o /app/aim
-RUN chmod +x /app/aim && chmod +rw /app/aim.db
+RUN chmod +x /app/aim
 
 FROM scratch AS prod
 
@@ -38,7 +38,6 @@ COPY --from=build /etc/passwd /etc/passwd
 COPY --from=build /etc/group /etc/group
 COPY --from=build /app/models /app/models
 COPY --from=build /app/aim /app/aim
-COPY --from=build /app/aim.db /app/aim.db
 
 # Use an unprivileged user.
 USER appuser:appuser
