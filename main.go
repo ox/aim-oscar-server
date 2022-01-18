@@ -230,7 +230,12 @@ func main() {
 
 			if service, ok := serviceManager.GetService(snac.Header.Family); ok {
 				newCtx, err := service.HandleSNAC(ctx, db, snac)
-				util.PanicIfError(err)
+				if err != nil {
+					log.Printf("encountered error: %s", err)
+					session.Disconnect()
+					handleCloseFn(ctx, session)
+				}
+
 				return newCtx
 			}
 		} else if flap.Header.Channel == 4 {

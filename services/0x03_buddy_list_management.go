@@ -48,7 +48,12 @@ func (b *BuddyListManagement) HandleSNAC(ctx context.Context, db *bun.DB, snac *
 				return ctx, errors.Wrap(err, "error looking for User")
 			}
 			if buddy == nil {
-				return ctx, aimerror.UserNotFound(buddyScreename)
+				noMatchSnac := oscar.NewSNAC(0x3, 1)
+				noMatchSnac.Data.WriteUint16(0x14) // error code 0x14: No Match
+				noMatchFlap := oscar.NewFLAP(2)
+				noMatchFlap.Data.WriteBinary(noMatchSnac)
+				session.Send(noMatchFlap)
+				return ctx, nil
 			}
 
 			rel := &models.Buddy{
@@ -84,7 +89,12 @@ func (b *BuddyListManagement) HandleSNAC(ctx context.Context, db *bun.DB, snac *
 				return ctx, errors.Wrap(err, "error looking for User")
 			}
 			if buddy == nil {
-				return ctx, aimerror.UserNotFound(buddyScreename)
+				noMatchSnac := oscar.NewSNAC(0x3, 1)
+				noMatchSnac.Data.WriteUint16(0x14) // error code 0x14: No Match
+				noMatchFlap := oscar.NewFLAP(2)
+				noMatchFlap.Data.WriteBinary(noMatchSnac)
+				session.Send(noMatchFlap)
+				return ctx, nil
 			}
 
 			_, err = db.NewDelete().Model((*models.Buddy)(nil)).Where("source_uin = ?", user.UIN).Where("with_uin = ?", buddy.UIN).Exec(ctx)

@@ -52,7 +52,6 @@ func (s *LocationServices) HandleSNAC(ctx context.Context, db *bun.DB, snac *osc
 			}
 			user.AwayMessage = string(awayMessageTLV.Data)
 			user.AwayMessageEncoding = string(awayMessageMimeTLV.Data)
-
 		}
 
 		profileTLV := oscar.FindTLV(tlvs, 0x2)
@@ -94,6 +93,14 @@ func (s *LocationServices) HandleSNAC(ctx context.Context, db *bun.DB, snac *osc
 		requestedUser, err := models.UserByScreenName(ctx, db, requestedScreenName)
 		if err != nil {
 			return ctx, aimerror.FetchingUser(err, requestedScreenName)
+		}
+		if requestedUser == nil {
+			noMatchSnac := oscar.NewSNAC(0x2, 1)
+			noMatchSnac.Data.WriteUint16(0x14) // error code 0x14: No Match
+			noMatchFlap := oscar.NewFLAP(2)
+			noMatchFlap.Data.WriteBinary(noMatchSnac)
+			session.Send(noMatchFlap)
+			return ctx, nil
 		}
 
 		respSnac := oscar.NewSNAC(2, 6)
