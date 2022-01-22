@@ -13,7 +13,7 @@ Run your own AIM chat server, managing users and groups. Hook up a vintage clien
 - [ ] Look up buddy
 - [ ] Buddy icons
 - [ ] Rate limiting + warn system
-- [ ] Web Signup
+- [x] Web Signup (https://runningman.network/register)
 - [ ] Federation with other servers
 
 ## Getting Started
@@ -28,17 +28,20 @@ $ go build && ./aim-oscar
 
 Environment flags:
 
-- OSCAR_HOST: hostname of the server
-- OSCAR_PORT: port to bind to
-- OSCAR_BOS_HOST: hostname of Basic OSCAR Service that provides core client features
-- OSCAR_BOS_PORT: port of Basic OSCAR Service
+- OSCAR_HOST: host interface to bind to (default: 0.0.0.0)
+- OSCAR_PORT: port to bind to (default: 5190)
+- OSCAR_BOS_HOST: hostname of Basic OSCAR Service that provides core client features (default: 0.0.0.0)
+- OSCAR_BOS_PORT: port of Basic OSCAR Service (default: 5190)
+- DB_URL: URL of Postgres database to use
+- DB_USER: Username of the db user
+- DB_PASSWORD: Password of the db user
 
 Flags:
 
 - `-host`: hostname of server
 - `-port`: port to bind to
 - `-boshost`: hostname of Basic OSCAR Service
-- `-bosort`: port of Basic OSCAR Service
+- `-bosport`: port of Basic OSCAR Service
 - `-h`: see help information about flags
 
 ### Terms
