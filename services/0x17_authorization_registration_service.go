@@ -21,6 +21,16 @@ import (
 const CIPHER_LENGTH = 64
 const AIM_MD5_STRING = "AOL Instant Messenger (SM)"
 
+var ROAST = [16]byte{0xF3, 0x26, 0x81, 0xC4, 0x39, 0x86, 0xDB, 0x92, 0x71, 0xA3, 0xB9, 0xE6, 0x53, 0x7A, 0x95, 0x7C}
+
+func roast(password string) []byte {
+	ret := make([]byte, 0)
+	for i, letter := range password {
+		ret = append(ret, byte(letter)^ROAST[i%16])
+	}
+	return ret
+}
+
 type AuthorizationCookie struct {
 	UIN int64
 	X   string
@@ -38,6 +48,28 @@ func AuthenticateFLAPCookie(ctx context.Context, db *bun.DB, flap *oscar.FLAP) (
 		return nil, errors.Wrap(err, "authentication request missing TLVs")
 	}
 
+	/*
+		There are 2 ways that clients authenticate: channel 1 auth w/ roasted password, or via MD5 hash. The
+		former is used by the 1.0 client, whereas the second is used by 3.5 and up (I believe).
+	*/
+
+	// This is channel 1 auth
+	screenNameTLV := oscar.FindTLV(tlvs, 0x1)
+	roastedPWTLV := oscar.FindTLV(tlvs, 0x2)
+	if screenNameTLV != nil && roastedPWTLV != nil {
+		user, err := models.UserByScreenName(ctx, db, string(screenNameTLV.Data))
+		if err != nil {
+			return nil, errors.Wrap(err, "could not get User by UIN")
+		}
+
+		if !bytes.Equal(roastedPWTLV.Data, roast(user.Password)) {
+			return nil, errors.New("invalid password")
+		}
+
+		return user, nil
+	}
+
+	// This is MD5 hash auth
 	cookieTLV := oscar.FindTLV(tlvs, 0x6)
 	if cookieTLV == nil {
 		return nil, errors.New("authentication request missing Cookie TLV 0x6")
