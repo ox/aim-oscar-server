@@ -21,7 +21,6 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/uptrace/bun"
-	"github.com/uptrace/bun/dbfixture"
 	"github.com/uptrace/bun/dialect/pgdialect"
 	"github.com/uptrace/bun/driver/pgdriver"
 	"github.com/uptrace/bun/extra/bundebug"
@@ -127,13 +126,6 @@ func main() {
 
 	// Register our DB models
 	db.RegisterModel((*models.User)(nil), (*models.Message)(nil), (*models.Buddy)(nil), (*models.EmailVerification)(nil))
-
-	// dev: load in fixtures to test against
-	fixture := dbfixture.New(db, dbfixture.WithRecreateTables())
-	err := fixture.Load(context.Background(), os.DirFS("./models"), "fixtures.yml")
-	if err != nil {
-		panic(err)
-	}
 
 	listener, err := net.Listen("tcp", OSCAR_ADDRESS)
 	if err != nil {
