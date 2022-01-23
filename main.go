@@ -187,6 +187,7 @@ func main() {
 		if flap.Header.Channel == 1 {
 			// Is this a hello?
 			if bytes.Equal(flap.Data.Bytes(), []byte{0, 0, 0, 1}) {
+				log.Println("this is a hello")
 				return ctx
 			}
 

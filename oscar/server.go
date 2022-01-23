@@ -2,6 +2,7 @@ package oscar
 
 import (
 	"aim-oscar/util"
+	"bytes"
 	"context"
 	"encoding/binary"
 	"fmt"
@@ -32,7 +33,7 @@ func (h *Handler) Handle(conn net.Conn) {
 	ctx := NewContextWithSession(context.Background(), conn)
 	session, _ := SessionFromContext(ctx)
 
-	buf := make([]byte, 2048)
+	var buf bytes.Buffer
 	for {
 		if !session.GreetedClient {
 			// send a hello
@@ -42,7 +43,8 @@ func (h *Handler) Handle(conn net.Conn) {
 			session.GreetedClient = true
 		}
 
-		n, err := conn.Read(buf)
+		incoming := make([]byte, 512)
+		n, err := conn.Read(incoming)
 		if err != nil && err != io.EOF {
 			if strings.Contains(err.Error(), "use of closed network connection") {
 				session.Disconnect()
@@ -58,22 +60,27 @@ func (h *Handler) Handle(conn net.Conn) {
 			return
 		}
 
+		buf.Write(incoming[:n])
+
 		// Try to parse all of the FLAPs in the buffer if we have enough bytes to
 		// fill a FLAP header
-		for len(buf) >= 6 && buf[0] == 0x2a {
-			dataLength := binary.BigEndian.Uint16(buf[4:6])
+		for buf.Len() >= 6 && buf.Bytes()[0] == 0x2a {
+			bufBytes := buf.Bytes()
+			dataLength := binary.BigEndian.Uint16(bufBytes[4:6])
 			flapLength := int(dataLength) + 6
-			if len(buf) < flapLength {
-				log.Printf("not enough data, only %d bytes\n", len(buf))
-				fmt.Printf("%s\n", util.PrettyBytes(buf))
+			if len(bufBytes) < flapLength {
+				log.Printf("not enough data, expected %d bytes but have %d bytes\n", flapLength, len(bufBytes))
+				fmt.Printf("%s\n", util.PrettyBytes(bufBytes))
 				break
 			}
 
 			flap := &FLAP{}
-			if err := flap.UnmarshalBinary(buf[:flapLength]); err != nil {
+			flapBuf := make([]byte, flapLength)
+			buf.Read(flapBuf)
+			if err := flap.UnmarshalBinary(flapBuf); err != nil {
 				util.PanicIfError(errors.Wrap(err, "could not unmarshal FLAP"))
 			}
-			buf = buf[flapLength:]
+
 			ctx = h.handle(ctx, flap)
 		}
 	}
