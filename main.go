@@ -170,7 +170,9 @@ func main() {
 	handleFn := func(ctx context.Context, flap *oscar.FLAP) context.Context {
 		session, err := oscar.SessionFromContext(ctx)
 		if err != nil {
-			util.PanicIfError(err)
+			// TODO
+			log.Printf("no session in context. FLAP dump:\n%s\n", flap)
+			return ctx
 		}
 
 		if user := models.UserFromContext(ctx); user != nil {

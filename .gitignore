@@ -4,3 +4,4 @@ dist
 aim-oscar
 aim.db
 vendor
+.DS_Store

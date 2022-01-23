@@ -4,6 +4,7 @@ import (
 	"aim-oscar/util"
 	"context"
 	"encoding/binary"
+	"fmt"
 	"io"
 	"log"
 	"net"
@@ -37,8 +38,7 @@ func (h *Handler) Handle(conn net.Conn) {
 			// send a hello
 			hello := NewFLAP(1)
 			hello.Data.Write([]byte{0, 0, 0, 1})
-			err := session.Send(hello)
-			util.PanicIfError(err)
+			session.Send(hello)
 			session.GreetedClient = true
 		}
 
@@ -65,6 +65,7 @@ func (h *Handler) Handle(conn net.Conn) {
 			flapLength := int(dataLength) + 6
 			if len(buf) < flapLength {
 				log.Printf("not enough data, only %d bytes\n", len(buf))
+				fmt.Printf("%s\n", util.PrettyBytes(buf))
 				break
 			}
 
