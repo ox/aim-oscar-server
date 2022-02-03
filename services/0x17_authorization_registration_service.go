@@ -12,7 +12,6 @@ import (
 
 	"aim-oscar/models"
 	"aim-oscar/oscar"
-	"aim-oscar/util"
 
 	"github.com/pkg/errors"
 	"github.com/uptrace/bun"
@@ -99,26 +98,28 @@ func AuthenticateFLAPCookie(ctx context.Context, db *bun.DB, flap *oscar.FLAP) (
 	return user, nil
 }
 
-func (a *AuthorizationRegistrationService) GenerateCipher() string {
+func (a *AuthorizationRegistrationService) GenerateCipher() (string, error) {
 	randomBytes := make([]byte, 64)
 	_, err := rand.Read(randomBytes)
 	if err != nil {
-		panic(err)
+		return "", errors.Wrap(err, "could not generate cipher")
 	}
-	return base32.StdEncoding.EncodeToString(randomBytes)[:CIPHER_LENGTH]
+	return base32.StdEncoding.EncodeToString(randomBytes)[:CIPHER_LENGTH], nil
 }
 
 func (a *AuthorizationRegistrationService) HandleSNAC(ctx context.Context, db *bun.DB, snac *oscar.SNAC) (context.Context, error) {
 	session, err := oscar.SessionFromContext(ctx)
 	if err != nil {
-		util.PanicIfError(err)
+		return ctx, errors.Wrap(err, "could not extract session from context")
 	}
 
 	switch snac.Header.Subtype {
 	// Request MD5 Auth Key
 	case 0x06:
 		tlvs, err := oscar.UnmarshalTLVs(snac.Data.Bytes())
-		util.PanicIfError(err)
+		if err != nil {
+			return ctx, errors.Wrap(err, "could not unmarshal TLVs")
+		}
 
 		screenNameTLV := oscar.FindTLV(tlvs, 1)
 		if screenNameTLV == nil {
@@ -140,7 +141,10 @@ func (a *AuthorizationRegistrationService) HandleSNAC(ctx context.Context, db *b
 		}
 
 		// Create cipher for this user
-		user.Cipher = a.GenerateCipher()
+		user.Cipher, err = a.GenerateCipher()
+		if err != nil {
+			return ctx, err
+		}
 		if err = user.Update(ctx, db); err != nil {
 			return ctx, err
 		}
@@ -156,7 +160,9 @@ func (a *AuthorizationRegistrationService) HandleSNAC(ctx context.Context, db *b
 	// Client Authorization Request
 	case 0x02:
 		tlvs, err := oscar.UnmarshalTLVs(snac.Data.Bytes())
-		util.PanicIfError(err)
+		if err != nil {
+			return ctx, errors.Wrap(err, "could not unmarshal TLVs")
+		}
 
 		screenNameTLV := oscar.FindTLV(tlvs, 1)
 		if screenNameTLV == nil {
@@ -230,7 +236,9 @@ func (a *AuthorizationRegistrationService) HandleSNAC(ctx context.Context, db *b
 			UIN: user.UIN,
 			X:   fmt.Sprintf("%x", expectedPasswordHash),
 		})
-		util.PanicIfError(err)
+		if err != nil {
+			return ctx, errors.Wrap(err, "could not marshal authorization cookie")
+		}
 
 		authSnac.Data.WriteBinary(oscar.NewTLV(0x6, cookie))
 		authSnac.Data.WriteBinary(oscar.NewTLV(0x11, []byte(user.Email)))

@@ -211,8 +211,12 @@ func main() {
 			return ctx
 		} else if flap.Header.Channel == 2 {
 			snac := &oscar.SNAC{}
-			err := snac.UnmarshalBinary(flap.Data.Bytes())
-			util.PanicIfError(err)
+			if err := snac.UnmarshalBinary(flap.Data.Bytes()); err != nil {
+				log.Printf("could not unmarshal FLAP data: %w", err)
+				session.Disconnect()
+				handleCloseFn(ctx, session)
+				return ctx
+			}
 
 			fmt.Printf("%+v\n", snac)
 			if tlvs, err := oscar.UnmarshalTLVs(snac.Data.Bytes()); err == nil {

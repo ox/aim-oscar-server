@@ -25,7 +25,6 @@ func MessageDelivery(sm *SessionManager) (chan *models.Message, routineFn) {
 				return
 			}
 
-			log.Printf("got a message: %s", message)
 			if s := sm.GetSession(message.To); s != nil {
 				messageSnac := oscar.NewSNAC(4, 7)
 				messageSnac.Data.WriteUint64(message.Cookie)
@@ -62,7 +61,7 @@ func MessageDelivery(sm *SessionManager) (chan *models.Message, routineFn) {
 				messageFlap := oscar.NewFLAP(2)
 				messageFlap.Data.WriteBinary(messageSnac)
 				if err := s.Send(messageFlap); err != nil {
-					log.Panicf("could not deliver message %d: %s", message.Cookie, err.Error())
+					log.Println("could not deliver message %d: %s", message.Cookie, err.Error())
 					continue
 				} else {
 					log.Printf("sent message %d to user %s at %s", message.Cookie, message.To, s.RemoteAddr())
@@ -70,7 +69,7 @@ func MessageDelivery(sm *SessionManager) (chan *models.Message, routineFn) {
 
 				if message.StoreOffline {
 					if err := message.MarkDelivered(context.Background(), db); err != nil {
-						log.Panicf("could not mark message %d as delivered: %s", message.Cookie, err.Error())
+						log.Println("could not mark message %d as delivered: %s", message.Cookie, err.Error())
 					}
 				}
 			} else {

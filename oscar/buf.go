@@ -1,7 +1,6 @@
 package oscar
 
 import (
-	"aim-oscar/util"
 	"encoding"
 	"encoding/binary"
 	"io"
@@ -119,7 +118,9 @@ func (b *Buffer) Write(x []byte) (int, error) {
 
 func (b *Buffer) WriteBinary(e encoding.BinaryMarshaler) {
 	d, err := e.MarshalBinary()
-	util.PanicIfError(err)
+	if err != nil {
+		panic(err)
+	}
 	b.d = append(b.d, d...)
 }
 

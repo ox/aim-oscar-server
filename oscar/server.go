@@ -10,8 +10,6 @@ import (
 	"log"
 	"net"
 	"strings"
-
-	"github.com/pkg/errors"
 )
 
 type HandlerFunc func(context.Context, *FLAP) context.Context
@@ -78,7 +76,10 @@ func (h *Handler) Handle(conn net.Conn) {
 			flapBuf := make([]byte, flapLength)
 			buf.Read(flapBuf)
 			if err := flap.UnmarshalBinary(flapBuf); err != nil {
-				util.PanicIfError(errors.Wrap(err, "could not unmarshal FLAP"))
+				log.Printf("could not unmarshal FLAP: %w", err)
+				// Toss out everything
+				buf.Reset()
+				break
 			}
 
 			ctx = h.handle(ctx, flap)

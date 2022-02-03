@@ -48,12 +48,6 @@ func PrettyBytes(bytes []byte) string {
 	return strings.TrimSpace(res)
 }
 
-func PanicIfError(err error) {
-	if err != nil {
-		panic(err)
-	}
-}
-
 func Word(x uint16) []byte {
 	b := make([]byte, 2)
 	binary.BigEndian.PutUint16(b, x)
