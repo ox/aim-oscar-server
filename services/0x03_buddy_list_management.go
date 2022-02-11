@@ -6,13 +6,16 @@ import (
 	"aim-oscar/oscar"
 	"aim-oscar/util"
 	"context"
+	"database/sql"
 	"log"
 
 	"github.com/pkg/errors"
 	"github.com/uptrace/bun"
 )
 
-type BuddyListManagement struct{}
+type BuddyListManagement struct {
+	OnlineCh chan *models.User
+}
 
 func (b *BuddyListManagement) HandleSNAC(ctx context.Context, db *bun.DB, snac *oscar.SNAC) (context.Context, error) {
 	session, _ := oscar.SessionFromContext(ctx)
@@ -61,10 +64,22 @@ func (b *BuddyListManagement) HandleSNAC(ctx context.Context, db *bun.DB, snac *
 				WithUIN:   buddy.UIN,
 			}
 
+			count, err := db.NewSelect().Model((*models.Buddy)(nil)).Where("source_uin = ?", user.UIN).Where("with_uin = ?", buddy.UIN).Count(ctx)
+			if err != nil && !errors.Is(err, sql.ErrNoRows) {
+				return ctx, err
+			}
+
+			// Already buddies
+			if count > 0 {
+				return ctx, nil
+			}
+
 			_, err = db.NewInsert().Model(rel).Exec(ctx)
 			if err != nil {
 				return ctx, err
 			}
+
+			b.OnlineCh <- buddy
 
 			log.Printf("%s added buddy %s to buddy list", user.ScreenName, buddyScreename)
 		}

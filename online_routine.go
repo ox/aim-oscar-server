@@ -44,31 +44,50 @@ func OnlineNotification(sm *SessionManager) (chan *models.User, routineFn) {
 				if buddy.Source.Status == models.UserStatusAway || buddy.Source.Status == models.UserStatusDnd {
 					continue
 				}
-				log.Printf("telling %s that %s has a new status: %d!", buddy.Source.ScreenName, user.ScreenName, user.Status)
+				log.Printf("telling %s that %s has a new status: %d", buddy.Source.ScreenName, user.ScreenName, user.Status)
 
 				if s := sm.GetSession(buddy.Source.ScreenName); s != nil {
-					onlineSnac := oscar.NewSNAC(3, 0xb)
-					onlineSnac.Data.WriteLPString(user.ScreenName)
-					onlineSnac.Data.WriteUint16(0) // TODO: user warning level
+					if user.Status == models.UserStatusOnline {
+						onlineSnac := oscar.NewSNAC(3, 0xb)
+						onlineSnac.Data.WriteLPString(user.ScreenName)
+						onlineSnac.Data.WriteUint16(0) // TODO: user warning level
 
-					tlvs := []*oscar.TLV{
-						oscar.NewTLV(1, util.Word(0)),                       // TODO: user class
-						oscar.NewTLV(0x06, util.Dword(uint32(user.Status))), // TODO: User Status
-						// oscar.NewTLV(0x0a, util.Dword(binary.BigEndian.Uint32([]byte(OSCAR_HOST)))),       // TODO: External IP of the client?
-						oscar.NewTLV(0x0f, util.Dword(uint32(time.Since(user.LastActivityAt).Seconds()))), // Idle Time
-						oscar.NewTLV(0x03, util.Dword(uint32(time.Now().Unix()))),                         // Client Signon Time
-						oscar.NewTLV(0x05, util.Dword(uint32(user.CreatedAt.Unix()))),                     // Member since
-					}
+						tlvs := []*oscar.TLV{
+							oscar.NewTLV(1, util.Word(0)), // TODO: user class
+							oscar.NewTLV(0x06, util.Dword(uint32(user.Status))),
+							// oscar.NewTLV(0x0a, util.Dword(binary.BigEndian.Uint32([]byte(OSCAR_HOST)))),       // TODO: External IP of the client?
+							oscar.NewTLV(0x0f, util.Dword(uint32(time.Since(user.LastActivityAt).Seconds()))), // Idle Time
+							oscar.NewTLV(0x03, util.Dword(uint32(time.Now().Unix()))),                         // Client Signon Time
+							oscar.NewTLV(0x05, util.Dword(uint32(user.CreatedAt.Unix()))),                     // Member since
+						}
 
-					onlineSnac.Data.WriteUint16(uint16(len(tlvs)))
-					for _, tlv := range tlvs {
-						onlineSnac.Data.WriteBinary(tlv)
-					}
+						onlineSnac.Data.WriteUint16(uint16(len(tlvs)))
+						for _, tlv := range tlvs {
+							onlineSnac.Data.WriteBinary(tlv)
+						}
 
-					onlineFlap := oscar.NewFLAP(2)
-					onlineFlap.Data.WriteBinary(onlineSnac)
-					if err := s.Send(onlineFlap); err != nil {
-						log.Printf("could not tell %s that %s is online", buddy.Source.ScreenName, user.ScreenName)
+						onlineFlap := oscar.NewFLAP(2)
+						onlineFlap.Data.WriteBinary(onlineSnac)
+						if err := s.Send(onlineFlap); err != nil {
+							log.Printf("could not tell %s that %s is online", buddy.Source.ScreenName, user.ScreenName)
+						}
+					} else if user.Status == models.UserStatusAway {
+						offlineSnac := oscar.NewSNAC(3, 0xc)
+						offlineSnac.Data.WriteLPString(user.ScreenName)
+						offlineSnac.Data.WriteUint16(0) // TODO: user warning level
+						tlvs := []*oscar.TLV{
+							oscar.NewTLV(1, util.Word(0)),
+						}
+						offlineSnac.Data.WriteUint16(uint16(len(tlvs)))
+						for _, tlv := range tlvs {
+							offlineSnac.Data.WriteBinary(tlv)
+						}
+
+						offlineFlap := oscar.NewFLAP(2)
+						offlineFlap.Data.WriteBinary(offlineSnac)
+						if err := s.Send(offlineFlap); err != nil {
+							log.Printf("could not tell %s that %s is offline", buddy.Source.ScreenName, user.ScreenName)
+						}
 					}
 				}
 			}

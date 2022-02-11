@@ -10,6 +10,7 @@ import (
 	"log"
 	"net"
 	"strings"
+	"time"
 )
 
 type HandlerFunc func(context.Context, *FLAP) context.Context
@@ -40,6 +41,9 @@ func (h *Handler) Handle(conn net.Conn) {
 			session.Send(hello)
 			session.GreetedClient = true
 		}
+
+		// Never timeout
+		conn.SetReadDeadline(time.Time{})
 
 		incoming := make([]byte, 512)
 		n, err := conn.Read(incoming)
