@@ -8,7 +8,7 @@ import (
 
 var Migrations = migrate.NewMigrations()
 
-//go:embed *.sql
+//go:embed *.sql *.yml
 var sqlMigrations embed.FS
 
 func init() {

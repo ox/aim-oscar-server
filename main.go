@@ -147,7 +147,7 @@ func main() {
 	serviceManager := NewServiceManager()
 	serviceManager.RegisterService(0x01, &services.GenericServiceControls{OnlineCh: onlineCh, ServerHostname: OSCAR_ADDRESS})
 	serviceManager.RegisterService(0x02, &services.LocationServices{OnlineCh: onlineCh})
-	serviceManager.RegisterService(0x03, &services.BuddyListManagement{})
+	serviceManager.RegisterService(0x03, &services.BuddyListManagement{OnlineCh: onlineCh})
 	serviceManager.RegisterService(0x04, &services.ICBM{CommCh: commCh})
 	serviceManager.RegisterService(0x17, &services.AuthorizationRegistrationService{BOSAddress: OSCAR_BOS_ADDRESS})
 

@@ -18,10 +18,10 @@ Run your own AIM chat server, managing users and groups. Hook up a vintage clien
 
 ## Getting Started
 
-Clone this repository, make sure you have [Go](https://go.dev/) installed in your terminal's path, then run:
+Clone this repository and make sure you have [Go](https://go.dev/) installed in your terminal's path. Copy `env/example.dev.env` to `env/dev.env` and configure your database settings. `OSCAR_BOS_HOST` should be configured to your host's IP or address. In the example dev env it asks macOS what the host's address is but this should be changed if you're on Linux. Then you can run the `run.sh` script to get started.
 
 ```
-$ go build && ./aim-oscar
+$ ./run.sh
 ```
 
 ### Configuration
