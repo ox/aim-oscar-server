@@ -3,7 +3,7 @@ package oscar
 import (
 	"aim-oscar/util"
 	"context"
-	"fmt"
+	"log"
 	"net"
 
 	"github.com/pkg/errors"
@@ -23,6 +23,7 @@ type Session struct {
 	conn           net.Conn
 	SequenceNumber uint16
 	GreetedClient  bool
+	ScreenName     string
 }
 
 func NewSession(conn net.Conn) *Session {
@@ -30,6 +31,7 @@ func NewSession(conn net.Conn) *Session {
 		conn:           conn,
 		SequenceNumber: 0,
 		GreetedClient:  false,
+		ScreenName:     "",
 	}
 }
 
@@ -58,7 +60,12 @@ func (s *Session) Send(flap *FLAP) error {
 		return errors.Wrap(err, "could not marshal message")
 	}
 
-	fmt.Printf("-> %v\n%s\n\n", s.conn.RemoteAddr(), util.PrettyBytes(bytes))
+	if s.ScreenName != "" {
+		log.Printf("SEND TO %s (%v)\n%s\n\n", s.ScreenName, s.conn.RemoteAddr(), util.PrettyBytes(bytes))
+	} else {
+		log.Printf("SEND TO %v\n%s\n\n", s.conn.RemoteAddr(), util.PrettyBytes(bytes))
+	}
+
 	_, err = s.conn.Write(bytes)
 	return errors.Wrap(err, "could not write to client connection")
 }

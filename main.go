@@ -158,7 +158,7 @@ func main() {
 		if user != nil {
 			user.Status = models.UserStatusAway
 			user.Cipher = ""
-			if err := user.Update(ctx, db); err != nil {
+			if err := user.Update(ctx, db, "status", "cipher"); err != nil {
 				log.Print(errors.Wrap(err, "could not set user as inactive"))
 			}
 
@@ -176,12 +176,17 @@ func main() {
 		}
 
 		if user := models.UserFromContext(ctx); user != nil {
-			fmt.Printf("%s (%v) ->\n%+v\n", user.ScreenName, session.RemoteAddr(), flap)
+			log.Printf("FROM %s (%v)\n%+v\n", user.ScreenName, session.RemoteAddr(), flap)
 			user.LastActivityAt = time.Now()
 			ctx = models.NewContextWithUser(ctx, user)
+
+			if session.ScreenName != user.ScreenName {
+				session.ScreenName = user.ScreenName
+			}
+
 			sessionManager.SetSession(user.ScreenName, session)
 		} else {
-			fmt.Printf("%v ->\n%+v\n", session.RemoteAddr(), flap)
+			log.Printf("FROM %v\n%+v\n", session.RemoteAddr(), flap)
 		}
 
 		if flap.Header.Channel == 1 {
@@ -196,6 +201,11 @@ func main() {
 				log.Printf("Could not authenticate cookie: %s", err)
 				return ctx
 			}
+
+			if session.ScreenName != user.ScreenName {
+				session.ScreenName = user.ScreenName
+			}
+
 			ctx = models.NewContextWithUser(ctx, user)
 
 			// Send available services
@@ -212,7 +222,7 @@ func main() {
 		} else if flap.Header.Channel == 2 {
 			snac := &oscar.SNAC{}
 			if err := snac.UnmarshalBinary(flap.Data.Bytes()); err != nil {
-				log.Printf("could not unmarshal FLAP data: %w", err)
+				log.Println("could not unmarshal FLAP data:", err)
 				session.Disconnect()
 				handleCloseFn(ctx, session)
 				return ctx
@@ -262,7 +272,7 @@ func main() {
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
-			fmt.Println("Error accepting connection: ", err.Error())
+			log.Println("Error accepting connection: ", err.Error())
 			os.Exit(1)
 		}
 

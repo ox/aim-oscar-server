@@ -42,8 +42,8 @@ func (h *Handler) Handle(conn net.Conn) {
 			session.GreetedClient = true
 		}
 
-		// Never timeout
-		conn.SetReadDeadline(time.Time{})
+		// Wait for some data to read
+		conn.SetReadDeadline(time.Now().Add(30 * time.Second))
 
 		incoming := make([]byte, 512)
 		n, err := conn.Read(incoming)
@@ -52,6 +52,11 @@ func (h *Handler) Handle(conn net.Conn) {
 				session.Disconnect()
 				h.handleClose(ctx, session)
 				return
+			}
+
+			// If the read timed out, just try reading again
+			if err, ok := err.(net.Error); ok && err.Timeout() {
+				continue
 			}
 
 			log.Println("OSCAR Read Error: ", err.Error())

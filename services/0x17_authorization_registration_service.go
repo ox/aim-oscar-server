@@ -145,7 +145,7 @@ func (a *AuthorizationRegistrationService) HandleSNAC(ctx context.Context, db *b
 		if err != nil {
 			return ctx, err
 		}
-		if err = user.Update(ctx, db); err != nil {
+		if err = user.Update(ctx, db, "cipher"); err != nil {
 			return ctx, err
 		}
 

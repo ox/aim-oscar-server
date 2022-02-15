@@ -38,7 +38,7 @@ func (g *GenericServiceControls) HandleSNAC(ctx context.Context, db *bun.DB, sna
 		user := models.UserFromContext(ctx)
 		if user != nil {
 			user.Status = models.UserStatusOnline
-			if err := user.Update(ctx, db); err != nil {
+			if err := user.Update(ctx, db, "status"); err != nil {
 				return ctx, errors.Wrap(err, "could not set user as active")
 			}
 
@@ -137,7 +137,7 @@ func (g *GenericServiceControls) HandleSNAC(ctx context.Context, db *bun.DB, sna
 		onlineSnac.Data.WriteUint16(0) // warning level
 
 		user.Status = models.UserStatusOnline
-		if err := user.Update(ctx, db); err != nil {
+		if err := user.Update(ctx, db, "status"); err != nil {
 			return ctx, errors.Wrap(err, "could not set user as active")
 		}
 

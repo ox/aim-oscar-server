@@ -84,8 +84,14 @@ func UserFromContext(ctx context.Context) *User {
 	return v.(*User)
 }
 
-func (u *User) Update(ctx context.Context, db *bun.DB) error {
-	if _, err := db.NewUpdate().Model(u).WherePK("uin").Exec(ctx); err != nil {
+func (u *User) Update(ctx context.Context, db *bun.DB, cols ...string) error {
+	q := db.NewUpdate().Model(u).WherePK("uin")
+
+	if len(cols) > 0 {
+		q = q.Column(cols...)
+	}
+
+	if _, err := q.Exec(ctx); err != nil {
 		return errors.Wrap(err, "could not update user")
 	}
 	return nil

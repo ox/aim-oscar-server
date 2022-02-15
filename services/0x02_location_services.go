@@ -70,7 +70,7 @@ func (s *LocationServices) HandleSNAC(ctx context.Context, db *bun.DB, snac *osc
 			user.Status = models.UserStatusAway
 		}
 
-		if err := user.Update(ctx, db); err != nil {
+		if err := user.Update(ctx, db, "away_message", "away_message_encoding", "profile", "profile_encoding"); err != nil {
 			return ctx, errors.Wrap(err, "could not set away message")
 		}
 
