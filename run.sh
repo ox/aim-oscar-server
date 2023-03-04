@@ -1,5 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
-source env/dev.env
-npm install
-npm run dev
+. dev.env
+./aim-oscar
