@@ -32,7 +32,8 @@ Environment flags:
 - OSCAR_PORT: port to bind to (default: 5190)
 - OSCAR_BOS_HOST: hostname of Basic OSCAR Service that provides core client features (default: 0.0.0.0)
 - OSCAR_BOS_PORT: port of Basic OSCAR Service (default: 5190)
-- DB_URL: URL of Postgres database to use
+- DB_URL: URL of PostgreSQL host
+- DB_NAME: Name of the database to use
 - DB_USER: Username of the db user
 - DB_PASSWORD: Password of the db user
 
