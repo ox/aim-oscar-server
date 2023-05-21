@@ -36,6 +36,7 @@ var (
 	DB_URL            = ""
 	DB_USER           = ""
 	DB_PASSWORD       = ""
+	DB_NAME           = ""
 )
 
 func init() {
@@ -75,6 +76,10 @@ func init() {
 		DB_PASSWORD = strings.TrimSpace(dbPassword)
 	}
 
+	if dbName, ok := os.LookupEnv("DB_NAME"); ok {
+		DB_NAME = strings.TrimSpace(dbName)
+	}
+
 	flag.Parse()
 
 	OSCAR_HOST = oscarHost
@@ -96,6 +101,10 @@ func init() {
 	if DB_PASSWORD == "" {
 		log.Fatalln("DB password not specified")
 	}
+
+	if DB_NAME == "" {
+		log.Fatalln("DB name not specified")
+	}
 }
 
 func main() {
@@ -105,7 +114,7 @@ func main() {
 		pgdriver.WithTLSConfig(&tls.Config{InsecureSkipVerify: true}),
 		pgdriver.WithUser(DB_USER),
 		pgdriver.WithPassword(DB_PASSWORD),
-		pgdriver.WithDatabase("postgres"),
+		pgdriver.WithDatabase(DB_NAME),
 		pgdriver.WithInsecure(true),
 		pgdriver.WithTimeout(5*time.Second),
 		pgdriver.WithDialTimeout(5*time.Second),

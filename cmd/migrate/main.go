@@ -21,19 +21,32 @@ var (
 	DB_URL      = ""
 	DB_USER     = ""
 	DB_PASSWORD = ""
+	DB_NAME     = ""
 )
 
 func init() {
 	if dbUrl, ok := os.LookupEnv("DB_URL"); ok {
 		DB_URL = strings.TrimSpace(dbUrl)
+	} else {
+		log.Fatalf("Missing DB_URL env variable")
 	}
 
 	if dbUser, ok := os.LookupEnv("DB_USER"); ok {
 		DB_USER = strings.TrimSpace(dbUser)
+	} else {
+		log.Fatalf("Missing DB_USER env variable")
 	}
 
 	if dbPassword, ok := os.LookupEnv("DB_PASSWORD"); ok {
 		DB_PASSWORD = strings.TrimSpace(dbPassword)
+	} else {
+		log.Fatalf("Missing DB_PASSWORD env variable")
+	}
+
+	if dbName, ok := os.LookupEnv("DB_NAME"); ok {
+		DB_NAME = strings.TrimSpace(dbName)
+	} else {
+		log.Fatalf("Missing DB_NAME env variable")
 	}
 
 	if len(os.Args) != 2 {
@@ -48,7 +61,7 @@ func main() {
 		pgdriver.WithTLSConfig(&tls.Config{InsecureSkipVerify: true}),
 		pgdriver.WithUser(DB_USER),
 		pgdriver.WithPassword(DB_PASSWORD),
-		pgdriver.WithDatabase("postgres"),
+		pgdriver.WithDatabase(DB_NAME),
 		pgdriver.WithInsecure(true),
 		pgdriver.WithTimeout(5*time.Second),
 		pgdriver.WithDialTimeout(5*time.Second),
