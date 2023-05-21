@@ -27,18 +27,26 @@ var (
 func init() {
 	if dbUrl, ok := os.LookupEnv("DB_URL"); ok {
 		DB_URL = strings.TrimSpace(dbUrl)
+	} else {
+		log.Fatalf("Missing DB_URL env variable")
 	}
 
 	if dbUser, ok := os.LookupEnv("DB_USER"); ok {
 		DB_USER = strings.TrimSpace(dbUser)
+	} else {
+		log.Fatalf("Missing DB_USER env variable")
 	}
 
 	if dbPassword, ok := os.LookupEnv("DB_PASSWORD"); ok {
 		DB_PASSWORD = strings.TrimSpace(dbPassword)
+	} else {
+		log.Fatalf("Missing DB_PASSWORD env variable")
 	}
 
 	if dbName, ok := os.LookupEnv("DB_NAME"); ok {
 		DB_NAME = strings.TrimSpace(dbName)
+	} else {
+		log.Fatalf("Missing DB_NAME env variable")
 	}
 
 	if len(os.Args) != 2 {
