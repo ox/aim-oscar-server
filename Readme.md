@@ -47,7 +47,7 @@ Flags:
 
 ### Terms
 
-_mirrored from [iserverd](http://iserverd.khstu.ru/oscar/terms.html)_
+_from [iserverd](https://ox.github.io/iserverd-oscar-mirror/)_
 
 - `BOS`: Basic OSCAR Service. This term refers to the services that form the core of the Instant Messenger service. These services include Login/Logoff, Locate, Instant Message, Roster management, Info management and Buddy List
 - `FLAP` is a low-level communications protocol that facilitates the development of higher-level, record-oriented, communications layers. It is used on the TCP connection between all clients and servers.
