@@ -44,43 +44,6 @@ func (g *GenericServiceControls) HandleSNAC(ctx context.Context, db *bun.DB, sna
 
 			g.OnlineCh <- user
 
-			// Find all of the buddies that are online and tell the user
-			var buddies []*models.Buddy
-			err := db.NewSelect().Model(&buddies).Where("with_uin = ?", user.UIN).Relation("Source").Scan(context.Background(), &buddies)
-			if err != nil {
-				return ctx, errors.Wrapf(err, "could not find user's buddies: %s", err.Error())
-			}
-
-			for _, buddy := range buddies {
-				if buddy.Source.Status != models.UserStatusOnline {
-					continue
-				}
-
-				onlineSnac := oscar.NewSNAC(3, 0xb)
-				onlineSnac.Data.WriteLPString(buddy.Source.ScreenName)
-				onlineSnac.Data.WriteUint16(0) // TODO: user warning level
-
-				tlvs := []*oscar.TLV{
-					oscar.NewTLV(1, util.Word(0)),                       // TODO: user class
-					oscar.NewTLV(0x06, util.Dword(uint32(user.Status))), // TODO: User Status
-					// oscar.NewTLV(0x0a, util.Dword(binary.BigEndian.Uint32([]byte(g.ServerHostname)))), // todo: External IP of the client?
-					oscar.NewTLV(0x0f, util.Dword(uint32(time.Since(user.LastActivityAt).Seconds()))), // Idle Time
-					oscar.NewTLV(0x03, util.Dword(uint32(time.Now().Unix()))),                         // Client Signon Time
-					oscar.NewTLV(0x05, util.Dword(uint32(user.CreatedAt.Unix()))),                     // Member since
-				}
-
-				onlineSnac.Data.WriteUint16(uint16(len(tlvs)))
-				for _, tlv := range tlvs {
-					onlineSnac.Data.WriteBinary(tlv)
-				}
-
-				onlineFlap := oscar.NewFLAP(2)
-				onlineFlap.Data.WriteBinary(onlineSnac)
-				if err := session.Send(onlineFlap); err != nil {
-					return ctx, errors.Wrapf(err, "could not tell %s that %s is online", buddy.Source.ScreenName, buddy.Target.ScreenName)
-				}
-			}
-
 			return models.NewContextWithUser(ctx, user), nil
 		}
 

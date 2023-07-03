@@ -5,6 +5,7 @@ import (
 	"sync"
 )
 
+// SessionManager maps screen names to user sessions
 type SessionManager struct {
 	sessions map[string]*oscar.Session
 	mutex    *sync.RWMutex

@@ -29,7 +29,7 @@ func NewHandler(fn HandlerFunc, handleClose HandleCloseFn) *Handler {
 }
 
 func (h *Handler) Handle(conn net.Conn) {
-	ctx := NewContextWithSession(context.Background(), conn)
+	ctx := NewContextWithSession(context.Background(), conn, nil)
 	session, _ := SessionFromContext(ctx)
 
 	var buf bytes.Buffer
@@ -85,7 +85,7 @@ func (h *Handler) Handle(conn net.Conn) {
 			flapBuf := make([]byte, flapLength)
 			buf.Read(flapBuf)
 			if err := flap.UnmarshalBinary(flapBuf); err != nil {
-				log.Printf("could not unmarshal FLAP: %w", err)
+				log.Printf("could not unmarshal FLAP: %s", err)
 				// Toss out everything
 				buf.Reset()
 				break

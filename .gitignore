@@ -5,4 +5,4 @@ aim-oscar
 aim.db
 vendor
 .DS_Store
-env/dev.env
+env/dev.yml

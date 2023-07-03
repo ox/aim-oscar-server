@@ -1,4 +1,4 @@
-FROM golang:1.17-alpine3.14 AS build
+FROM golang:1.20.5-alpine3.18 AS build
 
 RUN apk update && apk add --no-cache git ca-certificates && update-ca-certificates
 
@@ -19,8 +19,8 @@ WORKDIR /app
 COPY go.mod go.sum /app/
 RUN go mod download
 COPY . /app
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o /app/aim
-RUN chmod +x /app/aim
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o /app/aim-oscar-server
+RUN chmod +x /app/aim-oscar-server
 
 FROM scratch AS prod
 
@@ -37,9 +37,9 @@ COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=build /etc/passwd /etc/passwd
 COPY --from=build /etc/group /etc/group
 COPY --from=build /app/models /app/models
-COPY --from=build /app/aim /app/aim
+COPY --from=build /app/aim-oscar-server /app/aim-oscar-server
 
 # Use an unprivileged user.
 USER appuser:appuser
 
-ENTRYPOINT ["/app/aim"]
+ENTRYPOINT ["/app/aim-oscar-server"]

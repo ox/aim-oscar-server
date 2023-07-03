@@ -2,82 +2,47 @@ package main
 
 import (
 	"aim-oscar/cmd/migrate/migrations"
+	"aim-oscar/config"
+	"aim-oscar/db"
 	"context"
-	"crypto/tls"
-	"database/sql"
+	"flag"
 	"fmt"
 	"log"
-	"os"
-	"strings"
-	"time"
 
-	"github.com/uptrace/bun"
-	"github.com/uptrace/bun/dialect/pgdialect"
-	"github.com/uptrace/bun/driver/pgdriver"
 	"github.com/uptrace/bun/migrate"
 )
 
-var (
-	DB_URL      = ""
-	DB_USER     = ""
-	DB_PASSWORD = ""
-	DB_NAME     = ""
-)
-
-func init() {
-	if dbUrl, ok := os.LookupEnv("DB_URL"); ok {
-		DB_URL = strings.TrimSpace(dbUrl)
-	} else {
-		log.Fatalf("Missing DB_URL env variable")
-	}
-
-	if dbUser, ok := os.LookupEnv("DB_USER"); ok {
-		DB_USER = strings.TrimSpace(dbUser)
-	} else {
-		log.Fatalf("Missing DB_USER env variable")
-	}
-
-	if dbPassword, ok := os.LookupEnv("DB_PASSWORD"); ok {
-		DB_PASSWORD = strings.TrimSpace(dbPassword)
-	} else {
-		log.Fatalf("Missing DB_PASSWORD env variable")
-	}
-
-	if dbName, ok := os.LookupEnv("DB_NAME"); ok {
-		DB_NAME = strings.TrimSpace(dbName)
-	} else {
-		log.Fatalf("Missing DB_NAME env variable")
-	}
-
-	if len(os.Args) != 2 {
-		log.Fatalf("Usage: %s <init|up|down|status|mark_applied>", os.Args[0])
-	}
+func usage() {
+	flag.Usage()
+	log.Fatalf("Usage: migrate --config <config path> <init|up|down|status|mark_applied>\n")
 }
 
 func main() {
-	pgconn := pgdriver.NewConnector(
-		pgdriver.WithNetwork("tcp"),
-		pgdriver.WithAddr(DB_URL),
-		pgdriver.WithTLSConfig(&tls.Config{InsecureSkipVerify: true}),
-		pgdriver.WithUser(DB_USER),
-		pgdriver.WithPassword(DB_PASSWORD),
-		pgdriver.WithDatabase(DB_NAME),
-		pgdriver.WithInsecure(true),
-		pgdriver.WithTimeout(5*time.Second),
-		pgdriver.WithDialTimeout(5*time.Second),
-		pgdriver.WithReadTimeout(5*time.Second),
-		pgdriver.WithWriteTimeout(5*time.Second),
-	)
+	configPath := flag.String("config", "", "Path to app config")
+	flag.Parse()
 
-	// Set up the DB
-	sqldb := sql.OpenDB(pgconn)
-	db := bun.NewDB(sqldb, pgdialect.New())
-	db.SetConnMaxIdleTime(15 * time.Second)
-	db.SetConnMaxLifetime(1 * time.Minute)
+	if configPath == nil || *configPath == "" {
+		usage()
+	}
+
+	conf, err := config.FromFile(*configPath)
+	if err != nil {
+		log.Fatalf("could not parse config: %s", err)
+	}
+
+	db, err := db.Connect(&conf.DBConfig)
+	if err != nil {
+		log.Fatalf("could not connect to DB: %s", err)
+	}
 
 	ctx := context.Background()
-	cmd := os.Args[1]
+	cmd := flag.Arg(0)
 	migrator := migrate.NewMigrator(db, migrations.Migrations)
+
+	if cmd == "" {
+		log.Println("Missing command")
+		usage()
+	}
 
 	if cmd == "init" {
 		if err := migrator.Init(ctx); err != nil {

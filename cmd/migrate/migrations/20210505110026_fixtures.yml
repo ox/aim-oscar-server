@@ -1,14 +1,14 @@
 - model: User
   rows:
     - uin: 1
-      screen_name: toof
-      password: bar
-      email: toof@example.com
+      screen_name: alice
+      password: password
+      email: alice@example.com
       verified: true
     - uin: 2
-      screen_name: artem
-      password: bar
-      email: artem@example.com
+      screen_name: bob
+      password: password
+      email: bob@example.com
       verified: false
 - model: Message
   rows: []

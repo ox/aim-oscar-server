@@ -40,6 +40,16 @@ type User struct {
 	LastActivityAt      time.Time `bin:"-"`
 }
 
+func (user *User) SetAway(ctx context.Context, db *bun.DB) error {
+	user.Status = UserStatusAway
+	user.Cipher = ""
+	if err := user.Update(ctx, db, "status", "cipher"); err != nil {
+		return errors.Wrap(err, "could not set user as inactive")
+	}
+
+	return nil
+}
+
 type userKey string
 
 func (s userKey) String() string {
@@ -49,6 +59,21 @@ func (s userKey) String() string {
 var (
 	currentUser = userKey("user")
 )
+
+func CreateUser(ctx context.Context, db *bun.DB, screen_name, password, email string) (*User, error) {
+	user := &User{
+		ScreenName: screen_name,
+		Password:   password,
+		Email:      email,
+	}
+
+	_, err := db.NewInsert().Model(user).Exec(ctx, user)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not create user")
+	}
+
+	return user, nil
+}
 
 func UserByScreenName(ctx context.Context, db *bun.DB, screen_name string) (*User, error) {
 	user := new(User)

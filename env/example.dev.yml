@@ -1,0 +1,14 @@
+app:
+  log_level: debug
+
+oscar:
+  addr: 0.0.0.0:5190
+  bos_addr: 10.0.1.29:5190
+
+db:
+  name: postgres
+  user: postgres
+  password: password
+  host: localhost
+  port: 5432
+  ssl_mode: disable

@@ -3,6 +3,9 @@ module aim-oscar
 go 1.16
 
 require (
+	github.com/BurntSushi/toml v1.3.2 // indirect
+	github.com/ilyakaznacheev/cleanenv v1.4.2 // indirect
+	github.com/joho/godotenv v1.5.1 // indirect
 	github.com/pkg/errors v0.9.1
 	github.com/uptrace/bun v1.0.20
 	github.com/uptrace/bun/dbfixture v1.0.19

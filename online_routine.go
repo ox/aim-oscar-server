@@ -25,9 +25,9 @@ func OnlineNotification(sm *SessionManager) (chan *models.User, routineFn) {
 			}
 
 			if user.Status == models.UserStatusOnline {
-				log.Printf("%s is now online", user.ScreenName)
+				log.Printf("%s is online", user.ScreenName)
 			} else if user.Status == models.UserStatusAway {
-				log.Printf("%s is now away", user.ScreenName)
+				log.Printf("%s is away", user.ScreenName)
 			}
 
 			ctx := context.Background()
@@ -40,6 +40,7 @@ func OnlineNotification(sm *SessionManager) (chan *models.User, routineFn) {
 				return
 			}
 
+			// Inform each buddy that the user is now online
 			for _, buddy := range buddies {
 				if buddy.Source.Status == models.UserStatusAway || buddy.Source.Status == models.UserStatusDnd {
 					continue

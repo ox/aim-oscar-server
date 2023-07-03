@@ -14,36 +14,64 @@ Run your own AIM chat server, managing users and groups. Hook up a vintage clien
 - [ ] Buddy icons
 - [ ] Rate limiting + warn system
 - [x] Web Signup (https://runningman.network/register)
-- [ ] Federation with other servers
+- [ ] Federation?
 
 ## Getting Started
 
-Clone this repository and make sure you have [Go](https://go.dev/) installed in your terminal's path. Copy `env/example.dev.env` to `env/dev.env` and configure your database settings. `OSCAR_BOS_HOST` should be configured to your host's IP or address. In the example dev env it asks macOS what the host's address is but this should be changed if you're on Linux. Then you can run the `run.sh` script to get started.
+Clone this repository and make sure you have [Go](https://go.dev/) installed in your terminal's path. Copy `env/example.dev.yml` to `env/dev.yml` and configure the service settings.
+
+### OSCAR Settings
+
+The server has two addresses that need to be set:
+
+- `addr`: The host:port that the server listens on to provide Basic OSCAR Service
+
+The `addr` needs to be an IP that the client can reach directly, not `0.0.0.0`. If you're running the client in a virtual environment then `addr` should be set to the local IP of the machine. On macOS you can find this by running:
+
+```
+osascript -e "IPv4 address of (system info)"
+```
+
+### Running
+
+If this is the first time running this service you should do a DB migration to set up all of the tables and create a default user.
+
+```
+$ go run cmd/migrate/main.go --config <path to config> init
+$ go run cmd/migrate/main.go --config <path to config> up
+```
+
+After you have set up your config you can run the server:
 
 ```
 $ ./run.sh
 ```
 
-### Configuration
+If you set up your config somewhere else then set the `CONFIG_FILE` environment variable to the full path of the config file like so:
 
-Environment flags:
+```
+$ CONFIG_PATH=/Users/admin/config.yml ./run.sh
+```
 
-- OSCAR_HOST: host interface to bind to (default: 0.0.0.0)
-- OSCAR_PORT: port to bind to (default: 5190)
-- OSCAR_BOS_HOST: hostname of Basic OSCAR Service that provides core client features (default: 0.0.0.0)
-- OSCAR_BOS_PORT: port of Basic OSCAR Service (default: 5190)
-- DB_URL: URL of PostgreSQL host
-- DB_NAME: Name of the database to use
-- DB_USER: Username of the db user
-- DB_PASSWORD: Password of the db user
+### Development
 
-Flags:
+If you want to develop the aim-oscar-server, there is a `nodemon`-powered script in `./dev.sh` which will watch for changes and reload the aim-oscar-server automatically. The AIM clients are pretty good at not failing immediately when the server is unavailable so you can develop rapidly.
 
-- `-host`: hostname of server
-- `-port`: port to bind to
-- `-boshost`: hostname of Basic OSCAR Service
-- `-bosport`: port of Basic OSCAR Service
-- `-h`: see help information about flags
+## User Administration
+
+There is a user administration tool in `cmd/user` that lets you add and verify users on your server.
+
+To add and verify a user:
+
+```
+$ go run cmd/user/main.go --config <path to config> add <screen_name> <password> <email>
+```
+
+To verify a user that has registered but not confirmed their email:
+
+```
+$ go run cmd/user/main.go --config <path to config> verify <screen_name>
+```
 
 ### Terms
 

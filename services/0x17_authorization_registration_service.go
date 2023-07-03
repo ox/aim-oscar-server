@@ -58,7 +58,7 @@ func AuthenticateFLAPCookie(ctx context.Context, db *bun.DB, flap *oscar.FLAP) (
 	if screenNameTLV != nil && roastedPWTLV != nil {
 		user, err := models.UserByScreenName(ctx, db, string(screenNameTLV.Data))
 		if err != nil {
-			return nil, errors.Wrap(err, "could not get User by UIN")
+			return nil, errors.Wrap(err, "could not get User by Screen Name")
 		}
 
 		if !bytes.Equal(roastedPWTLV.Data, roast(user.Password)) {
