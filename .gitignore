@@ -6,3 +6,4 @@ aim.db
 vendor
 .DS_Store
 env/config.yml
+aim-oscar-server

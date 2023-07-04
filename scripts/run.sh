@@ -7,7 +7,7 @@ set -ex
 
 pushd $ROOTCWD
 
-go build -o /tmp/aim-oscar-server
-/tmp/aim-oscar-server -config ${CONFIG_FILE}
+go build -o ./aim-oscar-server
+./aim-oscar-server -config ${CONFIG_FILE}
 
 popd
