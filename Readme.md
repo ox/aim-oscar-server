@@ -18,7 +18,7 @@ Run your own AIM chat server, managing users and groups. Hook up a vintage clien
 
 ## Getting Started
 
-Clone this repository and make sure you have [Go](https://go.dev/) installed in your terminal's path. Copy `env/example.dev.yml` to `env/dev.yml` and configure the service settings.
+Clone this repository and make sure you have [Go](https://go.dev/) installed in your terminal's path. Copy `env/example.config.yml` to `env/config.yml` and configure the service settings.
 
 ### OSCAR Settings
 

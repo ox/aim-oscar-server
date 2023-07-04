@@ -16,21 +16,21 @@ RUN adduser \
     "${USER}"
 
 WORKDIR /app
+
 COPY go.mod go.sum /app/
 RUN go mod download
+
+ENV CGO_ENABLED=0
 COPY . /app
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o /app/aim-oscar-server
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o /app/aim-oscar-server
 RUN chmod +x /app/aim-oscar-server
 
-FROM scratch AS prod
+FROM golang:1.20.5-alpine3.18 AS prod
 
 WORKDIR /app
 
 EXPOSE 5190
-ARG OSCAR_HOST
-ARG OSCAR_PORT
-ARG OSCAR_BOS_HOST
-ARG OSCAR_BOS_PORT
 
 # Import from builder.
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
@@ -42,4 +42,10 @@ COPY --from=build /app/aim-oscar-server /app/aim-oscar-server
 # Use an unprivileged user.
 USER appuser:appuser
 
-ENTRYPOINT ["/app/aim-oscar-server"]
+CMD ["/app/aim-oscar-server", "-config", "/etc/aim-oscar-server/config.yml"]
+
+FROM prod as dev
+
+ARG config
+COPY $config /etc/aim-oscar-server/config.yml
+CMD ["/app/aim-oscar-server", "-config", "/etc/aim-oscar-server/config.yml"]
