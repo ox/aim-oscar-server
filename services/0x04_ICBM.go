@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/binary"
 	"log"
+	"os"
 
 	"github.com/pkg/errors"
 	"github.com/uptrace/bun"
@@ -51,6 +52,7 @@ type channel struct {
 
 func (icbm *ICBM) HandleSNAC(ctx context.Context, db *bun.DB, snac *oscar.SNAC) (context.Context, error) {
 	session, _ := oscar.SessionFromContext(ctx)
+	logger := log.New(os.Stdout, "ICBM: ", log.LstdFlags|log.Lmsgprefix)
 
 	switch snac.Header.Subtype {
 	// Client is telling us about their ICBM capabilities
@@ -104,7 +106,7 @@ func (icbm *ICBM) HandleSNAC(ctx context.Context, db *bun.DB, snac *oscar.SNAC) 
 		to, _ := snac.Data.ReadLPString()
 
 		if msgChannel != 1 {
-			log.Printf("Message for unsupported channel %d", msgChannel)
+			logger.Printf("Message for unsupported channel %d", msgChannel)
 			return ctx, nil
 		}
 

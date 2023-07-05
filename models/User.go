@@ -11,6 +11,48 @@ import (
 
 type UserStatus int16
 
+func (u UserStatus) String() string {
+	switch u {
+	case UserStatusOnline:
+		return "Online"
+	case UserStatusAway:
+		return "Away"
+	case UserStatusDnd:
+		return "Dnd"
+	case UserStatusNA:
+		return "NA"
+	case UserStatusOccupied:
+		return "Occupied"
+	case UserStatusFree4Chat:
+		return "Free4Chat"
+	case UserStatusInvisible:
+		return "Invisible"
+	default:
+		return "Unknown"
+	}
+}
+
+func (u UserStatus) Connected() bool {
+	switch u {
+	case UserStatusOnline:
+		return true
+	case UserStatusAway:
+		return false
+	case UserStatusDnd:
+		return false
+	case UserStatusNA:
+		return false
+	case UserStatusOccupied:
+		return true
+	case UserStatusFree4Chat:
+		return true
+	case UserStatusInvisible:
+		return true
+	default:
+		return false
+	}
+}
+
 const (
 	UserStatusOnline    = 0
 	UserStatusAway      = 1

@@ -4,13 +4,16 @@ import (
 	"aim-oscar/util"
 	"bytes"
 	"context"
+
 	"encoding/binary"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
+	"golang.org/x/exp/slog"
 )
 
 type HandlerFunc func(context.Context, *FLAP) context.Context
@@ -28,8 +31,11 @@ func NewHandler(fn HandlerFunc, handleClose HandleCloseFn) *Handler {
 	}
 }
 
-func (h *Handler) Handle(conn net.Conn) {
-	ctx := NewContextWithSession(context.Background(), conn, nil)
+func (h *Handler) Handle(conn net.Conn, logger *slog.Logger) {
+	connLogger := logger.With("session_id", uuid.New(), "ip", conn.RemoteAddr().String())
+	connLogger.Info("New Connection")
+
+	ctx := NewContextWithSession(context.Background(), conn, connLogger)
 	session, _ := SessionFromContext(ctx)
 
 	var buf bytes.Buffer
@@ -59,7 +65,7 @@ func (h *Handler) Handle(conn net.Conn) {
 				continue
 			}
 
-			log.Println("OSCAR Read Error: ", err.Error())
+			connLogger.Error("OSCAR Read Error", "err", err.Error())
 			return
 		}
 
@@ -76,7 +82,7 @@ func (h *Handler) Handle(conn net.Conn) {
 			dataLength := binary.BigEndian.Uint16(bufBytes[4:6])
 			flapLength := int(dataLength) + 6
 			if len(bufBytes) < flapLength {
-				log.Printf("not enough data, expected %d bytes but have %d bytes\n", flapLength, len(bufBytes))
+				connLogger.Error(fmt.Sprintf("not enough data, expected %d bytes but have %d bytes", flapLength, len(bufBytes)))
 				fmt.Printf("%s\n", util.PrettyBytes(bufBytes))
 				break
 			}
@@ -85,7 +91,7 @@ func (h *Handler) Handle(conn net.Conn) {
 			flapBuf := make([]byte, flapLength)
 			buf.Read(flapBuf)
 			if err := flap.UnmarshalBinary(flapBuf); err != nil {
-				log.Printf("could not unmarshal FLAP: %s", err)
+				connLogger.Error("could not unmarshal FLAP", "err", err)
 				// Toss out everything
 				buf.Reset()
 				break

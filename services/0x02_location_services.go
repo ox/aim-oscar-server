@@ -116,10 +116,7 @@ func (s *LocationServices) HandleSNAC(ctx context.Context, db *bun.DB, snac *osc
 			oscar.NewTLV(0x05, util.Dword(uint32(requestedUser.CreatedAt.Unix()))),                     // member since
 		}
 
-		respSnac.Data.WriteUint16(uint16(len(tlvs))) // number of TLVs
-		for _, tlv := range tlvs {
-			respSnac.Data.WriteBinary(tlv)
-		}
+		respSnac.AppendTLVs(tlvs)
 
 		// General info (Profile)
 		if requestType == 1 {

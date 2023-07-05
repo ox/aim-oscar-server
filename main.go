@@ -6,7 +6,6 @@ import (
 	"aim-oscar/models"
 	"aim-oscar/oscar"
 	"aim-oscar/services"
-	"aim-oscar/util"
 	"bytes"
 	"context"
 	"flag"
@@ -19,10 +18,7 @@ import (
 	"time"
 
 	"github.com/uptrace/bun/extra/bundebug"
-)
-
-const (
-	LogLevelDebug = "debug"
+	"golang.org/x/exp/slog"
 )
 
 func main() {
@@ -39,16 +35,32 @@ func main() {
 		log.Fatalf("could not parse config: %s", err)
 	}
 
+	var level slog.Level = slog.LevelDebug
+	if err := level.UnmarshalText([]byte(conf.AppConfig.LogLevel)); err != nil {
+		log.Fatalf("invalid app.log_level: %s", err)
+	}
+	logHandler := NewOSCARLogHandler(os.Stdout, &slog.HandlerOptions{Level: level})
+	logger := slog.New(logHandler)
+	slog.SetDefault(logger)
+
 	db, err := db.Connect(&conf.DBConfig)
 	if err != nil {
-		log.Fatalf("could not connect to DB: %s", err)
+		logger.Error("could not connect to DB", slog.String("err", err.Error()))
+		os.Exit(1)
 	}
 
 	// Print all queries to stdout.
-	db.AddQueryHook(bundebug.NewQueryHook(bundebug.WithVerbose(conf.AppConfig.LogLevel == "debug")))
+	db.AddQueryHook(bundebug.NewQueryHook(bundebug.WithVerbose(conf.AppConfig.LogLevel == slog.LevelDebug.String())))
 
 	// Register our DB models
 	db.RegisterModel((*models.User)(nil), (*models.Message)(nil), (*models.Buddy)(nil), (*models.EmailVerification)(nil))
+
+	// On start, all users must be offline bc there are no connections (while this is a one-server operation)
+	ctx := context.Background()
+	if _, err := db.NewUpdate().Model(&models.User{}).Set("status = ?", models.UserStatusAway).Where("status != ?", models.UserStatusAway).Exec(ctx); err != nil {
+		logger.Error("could not set all users as offline", "err", err.Error())
+		os.Exit(1)
+	}
 
 	listener, err := net.Listen("tcp", conf.OscarConfig.Addr)
 	if err != nil {
@@ -60,11 +72,11 @@ func main() {
 	sessionManager := NewSessionManager()
 
 	// Goroutine that listens for messages to deliver and tries to find a user socket to push them to
-	commCh, messageRoutine := MessageDelivery(sessionManager)
+	commCh, messageRoutine := MessageDelivery(sessionManager, logger)
 	go messageRoutine(db)
 
 	// Goroutine that listens for users who change their online status and notifies their buddies
-	onlineCh, onlineRoutine := OnlineNotification(sessionManager)
+	onlineCh, onlineRoutine := OnlineNotification(sessionManager, logger)
 	go onlineRoutine(db)
 
 	serviceManager := NewServiceManager()
@@ -75,15 +87,15 @@ func main() {
 	serviceManager.RegisterService(0x17, &services.AuthorizationRegistrationService{BOSAddress: conf.OscarConfig.Addr})
 
 	handleCloseFn := func(ctx context.Context, session *oscar.Session) {
-		log.Printf("%v disconnected", session.RemoteAddr())
+		session.Logger.Info("Disconnected")
 
 		user := models.UserFromContext(ctx)
 		if user != nil {
 			if err := user.SetAway(ctx, db); err != nil {
-				log.Printf("could not set user as away: %s", err)
+				logger.Error("Could not set user as away", slog.String("err", err.Error()))
 			}
 
-			log.Printf("closing down user %s\n", user.ScreenName)
+			logger.Info("Disconnecting user", slog.String("screen_name", user.ScreenName))
 
 			onlineCh <- user
 			if session, err := oscar.SessionFromContext(ctx); err == nil {
@@ -97,36 +109,44 @@ func main() {
 		session, err := oscar.SessionFromContext(ctx)
 		if err != nil {
 			// TODO
-			log.Printf("no session in context. FLAP dump:\n%s\n", flap)
+			logger.Error("no session in context", slog.String("flap", flap.String()))
 			return ctx
 		}
 
 		if user := models.UserFromContext(ctx); user != nil {
-			if conf.AppConfig.LogLevel == LogLevelDebug {
-				log.Printf("FROM %s (%v)\n%+v\n", user.ScreenName, session.RemoteAddr(), flap)
+			if conf.AppConfig.LogLevel == slog.LevelDebug.String() {
+				logger.Debug("RECV",
+					slog.String("screen_name", user.ScreenName),
+					slog.String("ip", session.RemoteAddr().String()),
+					"flap", flap,
+				)
 			}
 			user.LastActivityAt = time.Now()
 			ctx = models.NewContextWithUser(ctx, user)
 			session.ScreenName = user.ScreenName
 			sessionManager.SetSession(user.ScreenName, session)
 		} else {
-			if conf.AppConfig.LogLevel == LogLevelDebug {
-				log.Printf("FROM %v\n%+v\n", session.RemoteAddr(), flap)
+			if conf.AppConfig.LogLevel == slog.LevelDebug.String() {
+				logger.Debug("RECV",
+					slog.String("ip", session.RemoteAddr().String()),
+					"flap", flap,
+				)
 			}
 		}
 
 		if flap.Header.Channel == 1 {
 			// Is this a hello?
 			if bytes.Equal(flap.Data.Bytes(), []byte{0, 0, 0, 1}) {
-				log.Println("this is a hello")
 				return ctx
 			}
 
-			user, err := services.AuthenticateFLAPCookie(ctx, db, flap)
+			user, screenName, err := services.AuthenticateFLAPCookie(ctx, db, flap)
 			if err != nil {
-				log.Printf("Could not authenticate cookie: %s", err)
+				session.Logger.Error("Could not authenticate user cookie", "screen_name", screenName, slog.String("err", err.Error()))
 				return ctx
 			}
+
+			session.Logger.Info("Authenticated user", "screen_name", user.ScreenName)
 
 			session.ScreenName = user.ScreenName
 			ctx = models.NewContextWithUser(ctx, user)
@@ -145,27 +165,16 @@ func main() {
 		} else if flap.Header.Channel == 2 {
 			snac := &oscar.SNAC{}
 			if err := snac.UnmarshalBinary(flap.Data.Bytes()); err != nil {
-				log.Println("could not unmarshal FLAP data:", err)
+				session.Logger.Error("could not unmarshal FLAP data", "err", err)
 				session.Disconnect()
 				handleCloseFn(ctx, session)
 				return ctx
 			}
 
-			if conf.AppConfig.LogLevel == LogLevelDebug {
-				fmt.Printf("%s\n", snac)
-				if tlvs, err := oscar.UnmarshalTLVs(snac.Data.Bytes()); err == nil {
-					for _, tlv := range tlvs {
-						fmt.Printf("%s\n", tlv)
-					}
-				} else {
-					fmt.Printf("%s\n\n", util.PrettyBytes(snac.Data.Bytes()))
-				}
-			}
-
 			if service, ok := serviceManager.GetService(snac.Header.Family); ok {
 				newCtx, err := service.HandleSNAC(ctx, db, snac)
 				if err != nil {
-					log.Printf("encountered error: %s", err)
+					session.Logger.Error("error handling SNAC", slog.String("err", err.Error()))
 					session.Disconnect()
 					handleCloseFn(ctx, session)
 				}
@@ -173,8 +182,9 @@ func main() {
 				return newCtx
 			}
 		} else if flap.Header.Channel == 4 {
-			session.Disconnect()
 			handleCloseFn(ctx, session)
+		} else {
+			session.Logger.Info("unhandled channel message", "channel", flap.Header.Channel, "flap", flap)
 		}
 
 		return ctx
@@ -189,19 +199,18 @@ func main() {
 		close(commCh)
 		close(onlineCh)
 
-		log.Println("Shutting down")
+		logger.Info("Shutting down")
 		os.Exit(1)
 	}()
 
-	log.Println("OSCAR listening on " + conf.OscarConfig.Addr)
+	logger.Info("Listening on " + conf.OscarConfig.Addr)
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
-			log.Println("Error accepting connection: ", err.Error())
+			logger.Error("error accepting connection: ", err.Error())
 			os.Exit(1)
 		}
 
-		log.Printf("Connection from %v", conn.RemoteAddr())
-		go handler.Handle(conn)
+		go handler.Handle(conn, logger)
 	}
 }

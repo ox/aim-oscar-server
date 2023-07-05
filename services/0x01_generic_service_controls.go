@@ -114,14 +114,15 @@ func (g *GenericServiceControls) HandleSNAC(ctx context.Context, db *bun.DB, sna
 			oscar.NewTLV(0x05, util.Dword(uint32(user.CreatedAt.Unix()))),                     // Member since
 		}
 
-		onlineSnac.Data.WriteUint16(uint16(len(tlvs)))
-		for _, tlv := range tlvs {
-			onlineSnac.Data.WriteBinary(tlv)
-		}
+		onlineSnac.AppendTLVs(tlvs)
 
 		onlineFlap := oscar.NewFLAP(2)
 		onlineFlap.Data.WriteBinary(onlineSnac)
 		return models.NewContextWithUser(ctx, user), session.Send(onlineFlap)
+
+	case 0x16:
+		// NOP, client keepalive
+		return ctx, nil
 
 	// Client wants to know the ServiceVersions of all of the services offered
 	case 0x17:

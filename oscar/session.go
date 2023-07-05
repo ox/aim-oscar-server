@@ -1,12 +1,11 @@
 package oscar
 
 import (
-	"aim-oscar/util"
 	"context"
-	"log"
 	"net"
 
 	"github.com/pkg/errors"
+	"golang.org/x/exp/slog"
 )
 
 type sessionKey string
@@ -24,10 +23,10 @@ type Session struct {
 	SequenceNumber uint16
 	GreetedClient  bool
 	ScreenName     string
-	Logger         *log.Logger
+	Logger         *slog.Logger
 }
 
-func NewSession(conn net.Conn, logger *log.Logger) *Session {
+func NewSession(conn net.Conn, logger *slog.Logger) *Session {
 	return &Session{
 		conn:           conn,
 		SequenceNumber: 0,
@@ -37,7 +36,7 @@ func NewSession(conn net.Conn, logger *log.Logger) *Session {
 	}
 }
 
-func NewContextWithSession(ctx context.Context, conn net.Conn, logger *log.Logger) context.Context {
+func NewContextWithSession(ctx context.Context, conn net.Conn, logger *slog.Logger) context.Context {
 	session := NewSession(conn, logger)
 	return context.WithValue(ctx, currentSession, session)
 }
@@ -64,9 +63,13 @@ func (s *Session) Send(flap *FLAP) error {
 
 	if s.Logger != nil {
 		if s.ScreenName != "" {
-			s.Logger.Printf("SEND TO %s (%v)\n%s\n\n", s.ScreenName, s.conn.RemoteAddr(), util.PrettyBytes(bytes))
+			s.Logger.Debug("SEND",
+				slog.String("screen_name", s.ScreenName),
+				"flap",
+				flap,
+			)
 		} else {
-			s.Logger.Printf("SEND TO %v\n%s\n\n", s.conn.RemoteAddr(), util.PrettyBytes(bytes))
+			s.Logger.Debug("SEND", "flap", flap)
 		}
 	}
 

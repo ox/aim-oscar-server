@@ -41,7 +41,9 @@ func (m *Message) String() string {
 }
 
 func (m *Message) MarkDelivered(ctx context.Context, db *bun.DB) error {
+	// Once messages are delivered, clear their contents
 	m.DeliveredAt = time.Now()
+	m.Contents = "####"
 	if _, err := db.NewUpdate().Model(m).Where("cookie = ?", m.Cookie).Exec(ctx); err != nil {
 		return errors.Wrap(err, "could not mark message as updated")
 	}

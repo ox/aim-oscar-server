@@ -39,12 +39,12 @@ type AuthorizationRegistrationService struct {
 	BOSAddress string
 }
 
-func AuthenticateFLAPCookie(ctx context.Context, db *bun.DB, flap *oscar.FLAP) (*models.User, error) {
+func AuthenticateFLAPCookie(ctx context.Context, db *bun.DB, flap *oscar.FLAP) (*models.User, string, error) {
 	// Otherwise this is a protocol negotiation from the client. They're likely trying to connect
 	// and sending a cookie to verify who they are.
 	tlvs, err := oscar.UnmarshalTLVs(flap.Data.Bytes()[4:])
 	if err != nil {
-		return nil, errors.Wrap(err, "authentication request missing TLVs")
+		return nil, "", errors.Wrap(err, "authentication request missing TLVs")
 	}
 
 	/*
@@ -55,34 +55,40 @@ func AuthenticateFLAPCookie(ctx context.Context, db *bun.DB, flap *oscar.FLAP) (
 	// This is channel 1 auth
 	screenNameTLV := oscar.FindTLV(tlvs, 0x1)
 	roastedPWTLV := oscar.FindTLV(tlvs, 0x2)
+	screenName := ""
+
+	// This is a roasted password auth
 	if screenNameTLV != nil && roastedPWTLV != nil {
-		user, err := models.UserByScreenName(ctx, db, string(screenNameTLV.Data))
+		screenName := string(screenNameTLV.Data)
+		user, err := models.UserByScreenName(ctx, db, screenName)
 		if err != nil {
-			return nil, errors.Wrap(err, "could not get User by Screen Name")
+			return nil, screenName, errors.Wrap(err, "could not get User by Screen Name")
 		}
 
 		if !bytes.Equal(roastedPWTLV.Data, roast(user.Password)) {
-			return nil, errors.New("invalid password")
+			return nil, screenName, errors.New("invalid password")
 		}
 
-		return user, nil
+		return user, screenName, nil
 	}
 
 	// This is MD5 hash auth
 	cookieTLV := oscar.FindTLV(tlvs, 0x6)
 	if cookieTLV == nil {
-		return nil, errors.New("authentication request missing Cookie TLV 0x6")
+		return nil, screenName, errors.New("authentication request missing Cookie TLV 0x6")
 	}
 
 	auth := AuthorizationCookie{}
 	if err := json.Unmarshal(cookieTLV.Data, &auth); err != nil {
-		return nil, errors.Wrap(err, "could not unmarshal cookie")
+		return nil, screenName, errors.Wrap(err, "could not unmarshal cookie")
 	}
 
 	user, err := models.UserByUIN(ctx, db, auth.UIN)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get User by UIN")
+		return nil, screenName, errors.Wrap(err, "could not get User by UIN")
 	}
+
+	screenName = user.ScreenName
 
 	h := md5.New()
 	io.WriteString(h, user.Cipher)
@@ -92,10 +98,10 @@ func AuthenticateFLAPCookie(ctx context.Context, db *bun.DB, flap *oscar.FLAP) (
 
 	// Make sure the hash passed in matches the one from the DB
 	if expectedPasswordHash != auth.X {
-		return nil, errors.New("unexpected cookie hash")
+		return nil, screenName, errors.New("unexpected cookie hash")
 	}
 
-	return user, nil
+	return user, screenName, nil
 }
 
 func (a *AuthorizationRegistrationService) GenerateCipher() (string, error) {
@@ -177,6 +183,7 @@ func (a *AuthorizationRegistrationService) HandleSNAC(ctx context.Context, db *b
 		}
 
 		if user == nil {
+			session.Logger.Info("User does not exist", "screen_name", screen_name)
 			snac := oscar.NewSNAC(0x17, 0x03)
 			snac.Data.WriteBinary(screenNameTLV)
 			snac.Data.WriteBinary(oscar.NewTLV(0x08, []byte{0, 4}))
@@ -184,6 +191,8 @@ func (a *AuthorizationRegistrationService) HandleSNAC(ctx context.Context, db *b
 			resp.Data.WriteBinary(snac)
 			return ctx, session.Send(resp)
 		}
+
+		session.Logger.Info("Attempting to authenticate", "screen_name", screen_name)
 
 		passwordHashTLV := oscar.FindTLV(tlvs, 0x25)
 		if passwordHashTLV == nil {
@@ -198,6 +207,7 @@ func (a *AuthorizationRegistrationService) HandleSNAC(ctx context.Context, db *b
 		expectedPasswordHash := h.Sum(nil)
 
 		if !bytes.Equal(expectedPasswordHash, passwordHashTLV.Data) {
+			session.Logger.Info("Invalid password", "screen_name", screen_name)
 			// Tell the client this was a bad password
 			badPasswordSnac := oscar.NewSNAC(0x17, 0x03)
 			badPasswordSnac.Data.WriteBinary(screenNameTLV)
@@ -213,6 +223,7 @@ func (a *AuthorizationRegistrationService) HandleSNAC(ctx context.Context, db *b
 
 		// Only users that have verified their email can use the service
 		if !user.Verified || user.DeletedAt != nil {
+			session.Logger.Info("User is unverified or deleted", "screen_name", screen_name)
 			// Tell the client this was a bad password
 			badPasswordSnac := oscar.NewSNAC(0x17, 0x03)
 			badPasswordSnac.Data.WriteBinary(screenNameTLV)
@@ -245,6 +256,8 @@ func (a *AuthorizationRegistrationService) HandleSNAC(ctx context.Context, db *b
 		authFlap := oscar.NewFLAP(2)
 		authFlap.Data.WriteBinary(authSnac)
 		session.Send(authFlap)
+
+		session.Logger.Info("Sent Authorization Cookie", "screen_name", screen_name)
 
 		// Tell them to leave
 		discoFlap := oscar.NewFLAP(4)

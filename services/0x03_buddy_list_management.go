@@ -8,6 +8,7 @@ import (
 	"context"
 	"database/sql"
 	"log"
+	"os"
 
 	"github.com/pkg/errors"
 	"github.com/uptrace/bun"
@@ -19,6 +20,7 @@ type BuddyListManagement struct {
 
 func (b *BuddyListManagement) HandleSNAC(ctx context.Context, db *bun.DB, snac *oscar.SNAC) (context.Context, error) {
 	session, _ := oscar.SessionFromContext(ctx)
+	logger := log.New(os.Stdout, "Buddy List Management: ", log.LstdFlags|log.Lmsgprefix)
 
 	switch snac.Header.Subtype {
 
@@ -81,7 +83,7 @@ func (b *BuddyListManagement) HandleSNAC(ctx context.Context, db *bun.DB, snac *
 
 			b.OnlineCh <- buddy
 
-			log.Printf("%s added buddy %s to buddy list", user.ScreenName, buddyScreename)
+			logger.Printf("%s added buddy %s to buddy list", user.ScreenName, buddyScreename)
 		}
 
 		return ctx, nil
