@@ -107,11 +107,16 @@ func (s *LocationServices) HandleSNAC(ctx context.Context, db *bun.DB, snac *osc
 		respSnac.Data.WriteLPString(requestedUser.ScreenName)
 		respSnac.Data.WriteUint16(0) // TODO: warning level
 
+		idleTime := 0
+		if user.LastActivityAt != nil {
+			idleTime = time.Since(user.LastActivityAt).Seconds()
+		}
+
 		tlvs := []*oscar.TLV{
 			oscar.NewTLV(1, util.Dword(0)),                            // user class
 			oscar.NewTLV(6, util.Dword(uint32(requestedUser.Status))), // user status
 			// oscar.NewTLV(0x0a, util.Dword(binary.BigEndian.Uint32([]byte(OSCAR_HOST)))),                  // user external IP
-			oscar.NewTLV(0x0f, util.Dword(uint32(time.Since(requestedUser.LastActivityAt).Seconds()))), // idle time
+			oscar.NewTLV(0x0f, util.Dword(uint32(idleTime))), // idle time
 			oscar.NewTLV(0x03, util.Dword(uint32(time.Now().Unix()))),                                  // TODO: signon time
 			oscar.NewTLV(0x05, util.Dword(uint32(requestedUser.CreatedAt.Unix()))),                     // member since
 		}

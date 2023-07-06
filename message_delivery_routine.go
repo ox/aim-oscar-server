@@ -49,11 +49,17 @@ func MessageDelivery(sm *SessionManager, parentLogger *slog.Logger) (chan *model
 				continue
 			}
 
+
+			idleTime := 0
+			if user.LastActivityAt != nil {
+				idleTime = time.Since(user.LastActivityAt).Seconds()
+			}
+
 			tlvs := []*oscar.TLV{
-				oscar.NewTLV(1, util.Word(0)),                                                     // TODO: user class
-				oscar.NewTLV(6, util.Dword(uint32(user.Status))),                                  // TODO: user status
-				oscar.NewTLV(0x0f, util.Dword(uint32(time.Since(user.LastActivityAt).Seconds()))), // idle time
-				oscar.NewTLV(0x03, util.Dword(uint32(user.LastActivityAt.Second()))),              // TODO: signon time
+				oscar.NewTLV(1, util.Word(0)),                    // TODO: user class
+				oscar.NewTLV(6, util.Dword(uint32(user.Status))), // TODO: user status
+				oscar.NewTLV(0x0f, util.Dword(uint32(idleTime))), // Idle Time
+				oscar.NewTLV(0x03, util.Dword(uint32(idleTime))), // TODO: SignOn time
 				// oscar.NewTLV(4, []byte{}), // TODO: this TLV appears in automated responses like away messages
 			}
 
