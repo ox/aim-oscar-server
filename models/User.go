@@ -79,7 +79,7 @@ type User struct {
 	ProfileEncoding     string
 	AwayMessage         string
 	AwayMessageEncoding string
-	LastActivityAt      time.Time `bin:"-"`
+	LastActivityAt      *time.Time `bun:",nullzero"`
 }
 
 func (user *User) SetAway(ctx context.Context, db *bun.DB) error {

@@ -52,13 +52,20 @@ func OnlineNotification(sm *SessionManager, parentLogger *slog.Logger) (chan *mo
 						onlineSnac.Data.WriteLPString(user.ScreenName)
 						onlineSnac.Data.WriteUint16(0) // TODO: user warning level
 
-						tlvs := []*oscar.TLV{
-							oscar.NewTLV(1, util.Word(0)), // TODO: user class
-							oscar.NewTLV(0x06, util.Dword(uint32(user.Status))),
-							oscar.NewTLV(0x0f, util.Dword(uint32(time.Since(user.LastActivityAt).Seconds()))), // Idle Time
-							oscar.NewTLV(0x03, util.Dword(uint32(time.Now().Unix()))),                         // Client Signon Time
-							oscar.NewTLV(0x05, util.Dword(uint32(user.CreatedAt.Unix()))),                     // Member since
+
+						idleTime := 0
+						if user.LastActivityAt != nil {
+							idleTime = time.Since(user.LastActivityAt).Seconds()
 						}
+
+						tlvs := []*oscar.TLV{
+							oscar.NewTLV(1, util.Word(0)),                                 // TODO: user class
+							oscar.NewTLV(0x06, util.Dword(uint32(user.Status))),
+							oscar.NewTLV(0x0f, util.Dword(uint32(idleTime))),              // Idle Time
+							oscar.NewTLV(0x03, util.Dword(uint32(time.Now().Unix()))),     // Client Signon Time
+							oscar.NewTLV(0x05, util.Dword(uint32(user.CreatedAt.Unix()))), // Member since
+						}
+
 						onlineSnac.AppendTLVs(tlvs)
 
 						onlineFlap := oscar.NewFLAP(2)
@@ -114,12 +121,18 @@ func OnlineNotification(sm *SessionManager, parentLogger *slog.Logger) (chan *mo
 					onlineSnac.Data.WriteLPString(buddy.Source.ScreenName)
 					onlineSnac.Data.WriteUint16(0) // TODO: user warning level
 
+
+					idleTime := 0
+					if user.LastActivityAt != nil {
+						idleTime = time.Since(user.LastActivityAt).Seconds()
+					}
+
 					tlvs := []*oscar.TLV{
 						oscar.NewTLV(1, util.Word(0)), // TODO: user class
 						oscar.NewTLV(0x06, util.Dword(uint32(buddy.Source.Status))),
-						oscar.NewTLV(0x0f, util.Dword(uint32(time.Since(buddy.Source.LastActivityAt).Seconds()))), // Idle Time
-						oscar.NewTLV(0x03, util.Dword(uint32(time.Now().Unix()))),                                 // Client Signon Time
-						oscar.NewTLV(0x05, util.Dword(uint32(buddy.Source.CreatedAt.Unix()))),                     // Member since
+						oscar.NewTLV(0x0f, util.Dword(uint32(idleTime))), // Idle Time
+						oscar.NewTLV(0x03, util.Dword(uint32(time.Now().Unix()))),             // Client Signon Time
+						oscar.NewTLV(0x05, util.Dword(uint32(buddy.Source.CreatedAt.Unix()))), // Member since
 					}
 					onlineSnac.AppendTLVs(tlvs)
 

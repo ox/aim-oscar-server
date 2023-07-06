@@ -121,7 +121,8 @@ func main() {
 					"flap", flap,
 				)
 			}
-			user.LastActivityAt = time.Now()
+			now := time.Now()
+			user.LastActivityAt = &now
 			ctx = models.NewContextWithUser(ctx, user)
 			session.ScreenName = user.ScreenName
 			sessionManager.SetSession(user.ScreenName, session)

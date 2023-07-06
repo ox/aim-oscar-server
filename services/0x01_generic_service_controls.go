@@ -104,11 +104,16 @@ func (g *GenericServiceControls) HandleSNAC(ctx context.Context, db *bun.DB, sna
 			return ctx, errors.Wrap(err, "could not set user as active")
 		}
 
+		idleTime := 0
+		if user.LastActivityAt != nil {
+			idleTime = time.Since(user.LastActivityAt).Seconds()
+		}
+
 		tlvs := []*oscar.TLV{
 			oscar.NewTLV(0x01, util.Dword(0)),                   // User Class
 			oscar.NewTLV(0x06, util.Dword(uint32(user.Status))), // TODO: User Status
 			// oscar.NewTLV(0x0a, util.Dword(binary.BigEndian.Uint32([]byte(g.ServerHostname)))), // External IP of the client?
-			oscar.NewTLV(0x0f, util.Dword(uint32(time.Since(user.LastActivityAt).Seconds()))), // Idle Time
+			oscar.NewTLV(0x0f, util.Dword(uint32(idleTime))), // Idle Time
 			oscar.NewTLV(0x03, util.Dword(uint32(time.Now().Unix()))),                         // Client Signon Time
 			oscar.NewTLV(0x01e, util.Dword(0x0)),                                              // Unknown value
 			oscar.NewTLV(0x05, util.Dword(uint32(user.CreatedAt.Unix()))),                     // Member since
