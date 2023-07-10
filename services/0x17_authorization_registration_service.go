@@ -115,6 +115,7 @@ func (a *AuthorizationRegistrationService) GenerateCipher() (string, error) {
 
 func (a *AuthorizationRegistrationService) HandleSNAC(ctx context.Context, db *bun.DB, snac *oscar.SNAC) (context.Context, error) {
 	session, err := oscar.SessionFromContext(ctx)
+	logger := session.Logger.With("service", "authorization/registration")
 	if err != nil {
 		return ctx, errors.Wrap(err, "could not extract session from context")
 	}
@@ -183,7 +184,7 @@ func (a *AuthorizationRegistrationService) HandleSNAC(ctx context.Context, db *b
 		}
 
 		if user == nil {
-			session.Logger.Info("User does not exist", "screen_name", screen_name)
+			logger.Info("User does not exist", "screen_name", screen_name)
 			snac := oscar.NewSNAC(0x17, 0x03)
 			snac.Data.WriteBinary(screenNameTLV)
 			snac.Data.WriteBinary(oscar.NewTLV(0x08, []byte{0, 4}))
@@ -192,7 +193,7 @@ func (a *AuthorizationRegistrationService) HandleSNAC(ctx context.Context, db *b
 			return ctx, session.Send(resp)
 		}
 
-		session.Logger.Info("Attempting to authenticate", "screen_name", screen_name)
+		logger.Info("Attempting to authenticate", "screen_name", screen_name)
 
 		passwordHashTLV := oscar.FindTLV(tlvs, 0x25)
 		if passwordHashTLV == nil {
@@ -207,7 +208,7 @@ func (a *AuthorizationRegistrationService) HandleSNAC(ctx context.Context, db *b
 		expectedPasswordHash := h.Sum(nil)
 
 		if !bytes.Equal(expectedPasswordHash, passwordHashTLV.Data) {
-			session.Logger.Info("Invalid password", "screen_name", screen_name)
+			logger.Info("Invalid password", "screen_name", screen_name)
 			// Tell the client this was a bad password
 			badPasswordSnac := oscar.NewSNAC(0x17, 0x03)
 			badPasswordSnac.Data.WriteBinary(screenNameTLV)
@@ -223,7 +224,7 @@ func (a *AuthorizationRegistrationService) HandleSNAC(ctx context.Context, db *b
 
 		// Only users that have verified their email can use the service
 		if !user.Verified || user.DeletedAt != nil {
-			session.Logger.Info("User is unverified or deleted", "screen_name", screen_name)
+			logger.Info("User is unverified or deleted", "screen_name", screen_name)
 			// Tell the client this was a bad password
 			badPasswordSnac := oscar.NewSNAC(0x17, 0x03)
 			badPasswordSnac.Data.WriteBinary(screenNameTLV)
@@ -257,7 +258,7 @@ func (a *AuthorizationRegistrationService) HandleSNAC(ctx context.Context, db *b
 		authFlap.Data.WriteBinary(authSnac)
 		session.Send(authFlap)
 
-		session.Logger.Info("Sent Authorization Cookie", "screen_name", screen_name)
+		logger.Info("Sent Authorization Cookie", "screen_name", screen_name)
 
 		// Tell them to leave
 		discoFlap := oscar.NewFLAP(4)

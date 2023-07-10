@@ -24,9 +24,10 @@ Clone this repository and make sure you have [Go](https://go.dev/) installed in 
 
 The server has two addresses that need to be set:
 
-- `addr`: The host:port that the server listens on to provide Basic OSCAR Service
+- `addr`: The host:port that the server binds to
+- `bos`: The host:port that clients will try to reach to access Basic OSCAR Services
 
-The `addr` needs to be an IP that the client can reach directly, not `0.0.0.0`. If you're running the client in a virtual environment then `addr` should be set to the local IP of the machine. On macOS you can find this by running:
+The `bos` needs to be an IP that the client can reach directly, not `0.0.0.0`. If you're running the client in a virtual environment then `bos` should be set to the local IP of the machine. On macOS you can find this by running:
 
 ```
 osascript -e "IPv4 address of (system info)"

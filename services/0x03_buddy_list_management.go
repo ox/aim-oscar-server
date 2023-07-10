@@ -7,8 +7,7 @@ import (
 	"aim-oscar/util"
 	"context"
 	"database/sql"
-	"log"
-	"os"
+	"fmt"
 
 	"github.com/pkg/errors"
 	"github.com/uptrace/bun"
@@ -20,7 +19,7 @@ type BuddyListManagement struct {
 
 func (b *BuddyListManagement) HandleSNAC(ctx context.Context, db *bun.DB, snac *oscar.SNAC) (context.Context, error) {
 	session, _ := oscar.SessionFromContext(ctx)
-	logger := log.New(os.Stdout, "Buddy List Management: ", log.LstdFlags|log.Lmsgprefix)
+	logger := session.Logger.With("service", "buddy list management")
 
 	switch snac.Header.Subtype {
 
@@ -83,7 +82,7 @@ func (b *BuddyListManagement) HandleSNAC(ctx context.Context, db *bun.DB, snac *
 
 			b.OnlineCh <- buddy
 
-			logger.Printf("%s added buddy %s to buddy list", user.ScreenName, buddyScreename)
+			logger.Info(fmt.Sprintf("%s added buddy %s to buddy list", user.ScreenName, buddyScreename), "screen_name", user.ScreenName)
 		}
 
 		return ctx, nil
@@ -119,7 +118,7 @@ func (b *BuddyListManagement) HandleSNAC(ctx context.Context, db *bun.DB, snac *
 				return ctx, err
 			}
 
-			log.Printf("%s removed buddy %s from buddy list", user.ScreenName, buddyScreename)
+			logger.Info(fmt.Sprintf("%s removed buddy %s from buddy list", user.ScreenName, buddyScreename), "screen_name", user.ScreenName)
 		}
 
 		return ctx, nil

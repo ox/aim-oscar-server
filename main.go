@@ -84,7 +84,7 @@ func main() {
 	serviceManager.RegisterService(0x02, &services.LocationServices{OnlineCh: onlineCh})
 	serviceManager.RegisterService(0x03, &services.BuddyListManagement{OnlineCh: onlineCh})
 	serviceManager.RegisterService(0x04, &services.ICBM{CommCh: commCh})
-	serviceManager.RegisterService(0x17, &services.AuthorizationRegistrationService{BOSAddress: conf.OscarConfig.Addr})
+	serviceManager.RegisterService(0x17, &services.AuthorizationRegistrationService{BOSAddress: conf.OscarConfig.BOS})
 
 	handleCloseFn := func(ctx context.Context, session *oscar.Session) {
 		session.Logger.Info("Disconnected")
@@ -204,6 +204,7 @@ func main() {
 	}()
 
 	logger.Info("Listening on " + conf.OscarConfig.Addr)
+	logger.Info("BOS host " + conf.OscarConfig.BOS)
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
