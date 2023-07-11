@@ -60,10 +60,18 @@ func Dword(x uint32) []byte {
 	return b
 }
 
+// LPString returns a byte array where the first byte is the string length followed by the string
 func LPString(x string) []byte {
+	if len(x) > 255 {
+		panic(fmt.Errorf("string length %d exceeds 255, cannot fit as LPString", len(x)))
+	}
 	return append([]byte{uint8(len(x))}, []byte(x)...)
 }
 
+// LPUint16String returns a byte array where the first 2 bytes are the string length followed by the string
 func LPUint16String(x string) []byte {
+	if len(x) > 65535 {
+		panic(fmt.Errorf("string length %d exceeds 65535, cannot fit as LPUint16String", len(x)))
+	}
 	return append(Word(uint16(len(x))), []byte(x)...)
 }

@@ -73,7 +73,7 @@ func (g *GenericServiceControls) HandleSNAC(ctx context.Context, db *bun.DB, sna
 		rg.WriteUint16(1) // ID
 
 		// TODO: make actual rate groups instead of this hack. I can't tell which subtypes are supported so
-		// make it set rate limits for everything family for all subtypes under 0x21.
+		// make it set rate limits for every family and all subtypes under 0x21.
 		rg.WriteUint16(uint16(len(ServiceVersions)) * 0x21) // Number of rate groups
 		for family := range ServiceVersions {
 			for subtype := 0; subtype < 0x21; subtype++ {

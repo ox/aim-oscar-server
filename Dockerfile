@@ -49,3 +49,11 @@ FROM prod as dev
 ARG config
 COPY $config /etc/aim-oscar-server/config.yml
 CMD ["/app/aim-oscar-server", "-config", "/etc/aim-oscar-server/config.yml"]
+
+FROM build as db_tools
+
+WORKDIR /app
+
+COPY . /app
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    GOOS=linux GOARCH=amd64 go build -o migrate cmd/migrate/main.go
