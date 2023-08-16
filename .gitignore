@@ -8,3 +8,4 @@ vendor
 env/config.yml
 aim-oscar-server
 env/dev.yml
+env/prod.yml
