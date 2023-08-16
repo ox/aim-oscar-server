@@ -42,6 +42,9 @@ COPY --from=build /app/aim-oscar-server /app/aim-oscar-server
 # Use an unprivileged user.
 USER appuser:appuser
 
+ARG config
+COPY $config /etc/aim-oscar-server/config.yml
+
 CMD ["/app/aim-oscar-server", "-config", "/etc/aim-oscar-server/config.yml"]
 
 FROM prod as dev
