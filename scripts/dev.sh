@@ -9,5 +9,6 @@ then
 fi
 
 pushd $ROOTCWD
-nodemon --watch './' -e go,yml --ignore '*_test.go' --delay 200ms --exec './scripts/run.sh' --signal SIGTERM
+CONFIG_FILE="${CONFIG_FILE:=./env/dev.yml}" \
+    nodemon --watch './' -e go,yml --ignore '*_test.go' --delay 200ms --exec './scripts/run.sh' --signal SIGTERM
 popd
