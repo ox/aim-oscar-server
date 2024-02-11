@@ -11,8 +11,15 @@ type config struct {
 }
 
 type AppConfig struct {
-	LogLevel string `yaml:"log_level" env-default:"debug"`
-	LogStyle string `yaml:"log_style" env-default:"human"`
+	LogLevel string        `yaml:"log_level" env-default:"debug"`
+	LogStyle string        `yaml:"log_style" env-default:"human"`
+	Metrics  MetricsConfig `yaml:"metrics"`
+}
+
+type MetricsConfig struct {
+	Addr     string `yaml:"addr"`
+	User     string `yaml:"user"`
+	Password string `yaml:"password"`
 }
 
 type OscarConfig struct {

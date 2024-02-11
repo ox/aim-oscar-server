@@ -1,6 +1,10 @@
 app:
   log_level: debug
   log_style: human
+  metrics:
+    addr: localhost:5191
+    user: test
+    password: password
 
 oscar:
   addr: 0.0.0.0:5190

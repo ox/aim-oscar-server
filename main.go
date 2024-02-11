@@ -12,11 +12,13 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/uptrace/bun/extra/bundebug"
 	"golang.org/x/exp/slog"
 )
@@ -205,12 +207,36 @@ func main() {
 
 	handler := oscar.NewHandler(handleFn, handleCloseFn)
 
+	var metricsServer *http.Server
+	if conf.AppConfig.Metrics.Addr != "" {
+		mux := http.NewServeMux()
+		metricsHandler := promhttp.Handler()
+
+		if conf.AppConfig.Metrics.User != "" && conf.AppConfig.Metrics.Password != "" {
+			metricsHandler = BasicAuth(promhttp.Handler().ServeHTTP, conf.AppConfig.Metrics.User, conf.AppConfig.Metrics.Password, "identify yourself")
+		}
+
+		mux.Handle("/metrics", metricsHandler)
+		metricsServer = &http.Server{
+			Addr:    conf.AppConfig.Metrics.Addr,
+			Handler: mux,
+		}
+		go func() {
+			logger.Info("Metrics handler started", "metrics_server_addr", metricsServer.Addr)
+			metricsServer.ListenAndServe()
+		}()
+	}
+
 	exitChan := make(chan os.Signal, 1)
 	signal.Notify(exitChan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM, syscall.SIGABRT)
 	go func() {
 		<-exitChan
 		close(commCh)
 		close(onlineCh)
+
+		if metricsServer != nil {
+			metricsServer.Close()
+		}
 
 		logger.Info("Shutting down")
 		os.Exit(1)
