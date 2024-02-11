@@ -64,6 +64,10 @@ func (s *SNAC) String() string {
 	return fmt.Sprintf("SNAC(%#x, %#x)", s.Header.Family, s.Header.Subtype)
 }
 
+func (s *SNAC) WriteTLV(tlv *TLV) {
+	s.Data.WriteBinary(tlv)
+}
+
 func (s *SNAC) AppendTLVs(tlvs []*TLV) {
 	s.Data.WriteUint16(uint16(len(tlvs))) // number of TLVs
 	for _, tlv := range tlvs {

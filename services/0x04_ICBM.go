@@ -40,13 +40,12 @@ func ChannelFromContext(ctx context.Context) *channel {
 }
 
 type channel struct {
-	ID                      uint16
+	MaxSlots                uint16
 	MessageFlags            uint32
 	MaxMessageSnacSize      uint16
 	MaxSenderWarningLevel   uint16
 	MaxReceiverWarningLevel uint16
-	MinimumMessageInterval  uint16
-	Unknown                 uint16
+	MinimumMessageInterval  uint32
 }
 
 func (icbm *ICBM) HandleSNAC(ctx context.Context, db *bun.DB, snac *oscar.SNAC) (context.Context, error) {
@@ -66,26 +65,38 @@ func (icbm *ICBM) HandleSNAC(ctx context.Context, db *bun.DB, snac *oscar.SNAC) 
 			00 00	 	word	 	unknown parameter (also seen 03 E8)
 		*/
 
-		channel := channel{}
+		channel := &channel{}
 		r := bytes.NewReader(snac.Data.Bytes())
-		if err := binary.Read(r, binary.BigEndian, &channel); err != nil {
+		if err := binary.Read(r, binary.BigEndian, channel); err != nil {
 			return ctx, errors.Wrap(err, "could not read channel settings")
 		}
 
-		newCtx := NewContextWithChannel(ctx, &channel)
+		logger.Debug("got channel", "channel", channel)
+
+		newCtx := NewContextWithChannel(ctx, channel)
 		return newCtx, nil
 
 	// Client asks about the ICBM capabilities we set for them
 	case 0x04:
-		channel := ChannelFromContext(ctx)
-		channelSnac := oscar.NewSNAC(4, 5)
-		channelSnac.Data.WriteUint16(uint16(channel.ID))
-		channelSnac.Data.WriteUint32(channel.MessageFlags)
-		channelSnac.Data.WriteUint16(channel.MaxMessageSnacSize)
-		channelSnac.Data.WriteUint16(channel.MaxSenderWarningLevel)
-		channelSnac.Data.WriteUint16(channel.MaxReceiverWarningLevel)
-		channelSnac.Data.WriteUint16(channel.MinimumMessageInterval)
-		channelSnac.Data.WriteUint16(channel.Unknown)
+		// c := ChannelFromContext(ctx)
+		// if c == nil {
+		c := &channel{
+			MaxSlots:                100,
+			MessageFlags:            3,
+			MaxMessageSnacSize:      512,
+			MaxSenderWarningLevel:   999,
+			MaxReceiverWarningLevel: 999,
+			MinimumMessageInterval:  0,
+		}
+		// }
+
+		channelSnac := oscar.NewSNAC(0x4, 0x5)
+		channelSnac.Data.WriteUint16(100)
+		channelSnac.Data.WriteUint32(c.MessageFlags)
+		channelSnac.Data.WriteUint16(c.MaxMessageSnacSize)
+		channelSnac.Data.WriteUint16(c.MaxSenderWarningLevel)
+		channelSnac.Data.WriteUint16(c.MaxReceiverWarningLevel)
+		channelSnac.Data.WriteUint32(c.MinimumMessageInterval)
 
 		channelFlap := oscar.NewFLAP(2)
 		channelFlap.Data.WriteBinary(channelSnac)

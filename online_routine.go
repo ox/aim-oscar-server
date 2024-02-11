@@ -48,12 +48,12 @@ func OnlineNotification(sm *SessionManager, parentLogger *slog.Logger) (chan *mo
 				if buddySession := sm.GetSession(buddy.Source.ScreenName); buddySession != nil {
 					// If the user is now online...
 					if user.Status == models.UserStatusOnline {
-						onlineSnac := oscar.NewSNAC(3, 0xb)
+						onlineSnac := oscar.NewSNAC(0x3, 0xb)
 						onlineSnac.Data.WriteLPString(user.ScreenName)
 						onlineSnac.Data.WriteUint16(0) // TODO: user warning level
 
 						tlvs := []*oscar.TLV{
-							oscar.NewTLV(1, util.Word(0)), // TODO: user class
+							oscar.NewTLV(0x01, util.Word(0x0004)), // TODO: user class
 							oscar.NewTLV(0x06, util.Dword(uint32(user.Status))),
 							oscar.NewTLV(0x0f, util.Dword(uint32(time.Since(user.LastActivityAt).Seconds()))), // Idle Time
 							oscar.NewTLV(0x03, util.Dword(uint32(time.Now().Unix()))),                         // Client Signon Time
@@ -69,11 +69,11 @@ func OnlineNotification(sm *SessionManager, parentLogger *slog.Logger) (chan *mo
 
 						// If the user is now away
 					} else if user.Status == models.UserStatusAway {
-						offlineSnac := oscar.NewSNAC(3, 0xc)
+						offlineSnac := oscar.NewSNAC(0x3, 0xc)
 						offlineSnac.Data.WriteLPString(user.ScreenName)
 						offlineSnac.Data.WriteUint16(0) // TODO: user warning level
 						tlvs := []*oscar.TLV{
-							oscar.NewTLV(1, util.Word(0)),
+							oscar.NewTLV(1, util.Dword(0x0020)),
 						}
 						offlineSnac.AppendTLVs(tlvs)
 
@@ -96,11 +96,11 @@ func OnlineNotification(sm *SessionManager, parentLogger *slog.Logger) (chan *mo
 			for _, buddy := range buddies {
 				// If the buddy is away, tell the user
 				if buddy.Source.Status == models.UserStatusAway {
-					offlineSnac := oscar.NewSNAC(3, 0xc)
+					offlineSnac := oscar.NewSNAC(0x3, 0xc)
 					offlineSnac.Data.WriteLPString(buddy.Source.ScreenName)
 					offlineSnac.Data.WriteUint16(0) // TODO: user warning level
 					tlvs := []*oscar.TLV{
-						oscar.NewTLV(1, util.Word(0)),
+						oscar.NewTLV(1, util.Dword(0x0020)),
 					}
 					offlineSnac.AppendTLVs(tlvs)
 
@@ -115,7 +115,7 @@ func OnlineNotification(sm *SessionManager, parentLogger *slog.Logger) (chan *mo
 					onlineSnac.Data.WriteUint16(0) // TODO: user warning level
 
 					tlvs := []*oscar.TLV{
-						oscar.NewTLV(1, util.Word(0)), // TODO: user class
+						oscar.NewTLV(0x01, util.Word(0x0004)), // TODO: user class
 						oscar.NewTLV(0x06, util.Dword(uint32(buddy.Source.Status))),
 						oscar.NewTLV(0x0f, util.Dword(uint32(time.Since(buddy.Source.LastActivityAt).Seconds()))), // Idle Time
 						oscar.NewTLV(0x03, util.Dword(uint32(time.Now().Unix()))),                                 // Client Signon Time

@@ -25,10 +25,11 @@ func (b *BuddyListManagement) HandleSNAC(ctx context.Context, db *bun.DB, snac *
 
 	// Client wants to know the buddy list params + limitations
 	case 0x2:
-		limitSnac := oscar.NewSNAC(3, 3)
-		limitSnac.Data.WriteBinary(oscar.NewTLV(1, util.Word(500))) // Max buddy list size
-		limitSnac.Data.WriteBinary(oscar.NewTLV(2, util.Word(750))) // Max list watchers
-		limitSnac.Data.WriteBinary(oscar.NewTLV(3, util.Word(512))) // Max online notifications ?
+		limitSnac := oscar.NewSNAC(0x3, 0x3)
+		limitSnac.Data.WriteBinary(oscar.NewTLV(0x1, util.Word(600))) // Max buddy list size
+		limitSnac.Data.WriteBinary(oscar.NewTLV(0x2, util.Word(64)))  // Max list watchers
+		limitSnac.Data.WriteBinary(oscar.NewTLV(0x3, util.Word(64)))  // Max online notifications ?
+		limitSnac.Data.WriteBinary(oscar.NewTLV(0x4, util.Word(100)))
 
 		limitFlap := oscar.NewFLAP(2)
 		limitFlap.Data.WriteBinary(limitSnac)
@@ -123,6 +124,8 @@ func (b *BuddyListManagement) HandleSNAC(ctx context.Context, db *bun.DB, snac *
 
 		return ctx, nil
 	}
+
+	logger.Error(fmt.Sprintf("Unknown buddy list management family/subtype: 0x03, 0x%02x", snac.Header.Subtype))
 
 	return ctx, nil
 }

@@ -6,21 +6,31 @@ import (
 	"aim-oscar/oscar"
 	"aim-oscar/util"
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/pkg/errors"
 	"github.com/uptrace/bun"
 )
 
-var ServiceVersions map[uint16]uint16
+type ServiceVersion struct {
+	Family  uint16
+	Version uint16
+}
+
+var ServiceVersions []ServiceVersion
 
 func init() {
-	ServiceVersions = make(map[uint16]uint16)
-	ServiceVersions[1] = 3
-	ServiceVersions[2] = 1
-	ServiceVersions[3] = 1
-	ServiceVersions[4] = 1
-	ServiceVersions[17] = 1
+	ServiceVersions = []ServiceVersion{
+		{0x01, 3},
+		{0x02, 1},
+		{0x03, 1},
+		{0x04, 1},
+		{0x0f, 1},
+		{0x13, 1},
+		{0x17, 1},
+		{0x18, 1},
+	}
 }
 
 type GenericServiceControls struct {
@@ -30,6 +40,7 @@ type GenericServiceControls struct {
 
 func (g *GenericServiceControls) HandleSNAC(ctx context.Context, db *bun.DB, snac *oscar.SNAC) (context.Context, error) {
 	session, _ := oscar.SessionFromContext(ctx)
+	logger := session.Logger.With("service", "generic service controls")
 
 	switch snac.Header.Subtype {
 
@@ -47,6 +58,14 @@ func (g *GenericServiceControls) HandleSNAC(ctx context.Context, db *bun.DB, sna
 			return models.NewContextWithUser(ctx, user), nil
 		}
 
+		return ctx, nil
+
+	case 0x04:
+		family, err := snac.Data.ReadUint16()
+		if err != nil {
+			return ctx, errors.Wrap(err, "could not read family")
+		}
+		logger.Warn(fmt.Sprintf("client wants service for family 0x%02x", family))
 		return ctx, nil
 
 	// Client wants to know the rate limits for all services
@@ -75,9 +94,9 @@ func (g *GenericServiceControls) HandleSNAC(ctx context.Context, db *bun.DB, sna
 		// TODO: make actual rate groups instead of this hack. I can't tell which subtypes are supported so
 		// make it set rate limits for every family and all subtypes under 0x21.
 		rg.WriteUint16(uint16(len(ServiceVersions)) * 0x21) // Number of rate groups
-		for family := range ServiceVersions {
+		for _, service := range ServiceVersions {
 			for subtype := 0; subtype < 0x21; subtype++ {
-				rg.WriteUint16(family)
+				rg.WriteUint16(service.Family)
 				rg.WriteUint16(uint16(subtype))
 			}
 		}
@@ -87,6 +106,10 @@ func (g *GenericServiceControls) HandleSNAC(ctx context.Context, db *bun.DB, sna
 		rateFlap.Data.WriteBinary(rateSnac)
 		return ctx, session.Send(rateFlap)
 
+	// Client notifying server it accepted rate limits
+	case 0x08:
+		return ctx, nil
+
 	// Client wants their own online information
 	case 0x0e:
 		user := models.UserFromContext(ctx)
@@ -94,7 +117,7 @@ func (g *GenericServiceControls) HandleSNAC(ctx context.Context, db *bun.DB, sna
 			return ctx, aimerror.NoUserInSession
 		}
 
-		onlineSnac := oscar.NewSNAC(1, 0xf)
+		onlineSnac := oscar.NewSNAC(0x1, 0xf)
 		onlineSnac.Data.WriteUint8(uint8(len(user.ScreenName)))
 		onlineSnac.Data.WriteString(user.ScreenName)
 		onlineSnac.Data.WriteUint16(0) // warning level
@@ -105,12 +128,12 @@ func (g *GenericServiceControls) HandleSNAC(ctx context.Context, db *bun.DB, sna
 		}
 
 		tlvs := []*oscar.TLV{
-			oscar.NewTLV(0x01, util.Dword(0)),                   // User Class
-			oscar.NewTLV(0x06, util.Dword(uint32(user.Status))), // TODO: User Status
-			// oscar.NewTLV(0x0a, util.Dword(binary.BigEndian.Uint32([]byte(g.ServerHostname)))), // External IP of the client?
+			oscar.NewTLV(0x01, util.Dword(0x0100)),                                            // User Class
+			oscar.NewTLV(0x06, util.Dword(uint32(user.Status))),                               // user status
+			oscar.NewTLV(0x0a, util.Dword(0)),                                                 // External IP of the client?
 			oscar.NewTLV(0x0f, util.Dword(uint32(time.Since(user.LastActivityAt).Seconds()))), // Idle Time
 			oscar.NewTLV(0x03, util.Dword(uint32(time.Now().Unix()))),                         // Client Signon Time
-			oscar.NewTLV(0x01e, util.Dword(0x0)),                                              // Unknown value
+			oscar.NewTLV(0x1e, util.Dword(0x0)),                                               // Unknown value
 			oscar.NewTLV(0x05, util.Dword(uint32(user.CreatedAt.Unix()))),                     // Member since
 		}
 
@@ -120,16 +143,21 @@ func (g *GenericServiceControls) HandleSNAC(ctx context.Context, db *bun.DB, sna
 		onlineFlap.Data.WriteBinary(onlineSnac)
 		return models.NewContextWithUser(ctx, user), session.Send(onlineFlap)
 
+	// Client tells us the idle time
+	case 0x11:
+		// TODO: keep track of idle time
+		return ctx, nil
+
 	case 0x16:
 		// NOP, client keepalive
 		return ctx, nil
 
 	// Client wants to know the ServiceVersions of all of the services offered
 	case 0x17:
-		versionsSnac := oscar.NewSNAC(1, 0x18)
-		for family, version := range ServiceVersions {
-			versionsSnac.Data.WriteUint16(family)
-			versionsSnac.Data.WriteUint16(version)
+		versionsSnac := oscar.NewSNAC(0x1, 0x18)
+		for _, service := range ServiceVersions {
+			versionsSnac.Data.WriteUint16(service.Family)
+			versionsSnac.Data.WriteUint16(service.Version)
 		}
 		versionsFlap := oscar.NewFLAP(2)
 		versionsFlap.Data.WriteBinary(versionsSnac)

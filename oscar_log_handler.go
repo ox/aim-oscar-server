@@ -36,7 +36,7 @@ func (h *OSCARLogHandler) Handle(ctx context.Context, r slog.Record) error {
 		level = color.RedString(level)
 	}
 
-	timeStr := r.Time.Format("[15:05:05.000]")
+	timeStr := r.Time.Format("[2006-01-02 15:05:05.000]")
 	msg := color.CyanString(r.Message)
 
 	h.logger.Println(timeStr, level, msg)

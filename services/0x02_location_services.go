@@ -23,11 +23,19 @@ func (s *LocationServices) HandleSNAC(ctx context.Context, db *bun.DB, snac *osc
 
 	// Client wants to know the limits/permissions for Location services
 	case 0x02:
-		paramsSnac := oscar.NewSNAC(2, 3)
-		paramsSnac.Data.WriteBinary(oscar.NewTLV(1, util.Word(256))) // Max profile length TODO: error if user sends more
+		respSnac := oscar.NewSNAC(0x2, 0x3)
+
+		tlvs := []*oscar.TLV{
+			oscar.NewTLV(0x01, util.Word(512)), // profile max len // TODO: set a length?
+			oscar.NewTLV(0x02, util.Word(0)),   // max CLSIDS // TODO: implement?
+			oscar.NewTLV(0x03, util.Word(0)),   // unknown
+			oscar.NewTLV(0x04, util.Word(0)),   // unknown
+		}
+
+		respSnac.AppendTLVs(tlvs)
 
 		paramsFlap := oscar.NewFLAP(2)
-		paramsFlap.Data.WriteBinary(paramsSnac)
+		paramsFlap.Data.WriteBinary(respSnac)
 
 		return ctx, session.Send(paramsFlap)
 

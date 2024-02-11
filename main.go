@@ -39,7 +39,12 @@ func main() {
 	if err := level.UnmarshalText([]byte(conf.AppConfig.LogLevel)); err != nil {
 		log.Fatalf("invalid app.log_level: %s", err)
 	}
-	logHandler := NewOSCARLogHandler(os.Stdout, &slog.HandlerOptions{Level: level})
+
+	var logHandler slog.Handler = NewOSCARLogHandler(os.Stdout, &slog.HandlerOptions{Level: level})
+	if conf.AppConfig.LogStyle == "machine" {
+		logHandler = slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: level})
+	}
+
 	logger := slog.New(logHandler)
 	slog.SetDefault(logger)
 
@@ -84,7 +89,10 @@ func main() {
 	serviceManager.RegisterService(0x02, &services.LocationServices{OnlineCh: onlineCh})
 	serviceManager.RegisterService(0x03, &services.BuddyListManagement{OnlineCh: onlineCh})
 	serviceManager.RegisterService(0x04, &services.ICBM{CommCh: commCh})
+	// serviceManager.RegisterService(0x0f, &services.DirectorySearchService{})
+	// serviceManager.RegisterService(0x13, &services.FeedbagService{})
 	serviceManager.RegisterService(0x17, &services.AuthorizationRegistrationService{BOSAddress: conf.OscarConfig.BOS})
+	serviceManager.RegisterService(0x18, &services.AlertService{})
 
 	handleCloseFn := func(ctx context.Context, session *oscar.Session) {
 		session.Logger.Info("Disconnected")
@@ -152,9 +160,9 @@ func main() {
 			ctx = models.NewContextWithUser(ctx, user)
 
 			// Send available services
-			servicesSnac := oscar.NewSNAC(1, 3)
-			for family := range services.ServiceVersions {
-				servicesSnac.Data.WriteUint16(family)
+			servicesSnac := oscar.NewSNAC(0x1, 0x3)
+			for _, service := range services.ServiceVersions {
+				servicesSnac.Data.WriteUint16(service.Family)
 			}
 
 			servicesFlap := oscar.NewFLAP(2)
@@ -183,6 +191,11 @@ func main() {
 			}
 		} else if flap.Header.Channel == 4 {
 			handleCloseFn(ctx, session)
+		} else if flap.Header.Channel == 5 {
+			// User is still connected
+			// TODO: handle when user stops sending these messages?
+			return ctx
+			// session.Logger.Debug(fmt.Sprintf("%s is still connected", session.ScreenName))
 		} else {
 			session.Logger.Info("unhandled channel message", "channel", flap.Header.Channel, "flap", flap)
 		}

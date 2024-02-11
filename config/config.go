@@ -12,6 +12,7 @@ type config struct {
 
 type AppConfig struct {
 	LogLevel string `yaml:"log_level" env-default:"debug"`
+	LogStyle string `yaml:"log_style" env-default:"human"`
 }
 
 type OscarConfig struct {
