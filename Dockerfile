@@ -31,6 +31,7 @@ FROM golang:1.20.5-alpine3.18 AS prod
 WORKDIR /app
 
 EXPOSE 5190
+EXPOSE 5191
 
 # Import from builder.
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
