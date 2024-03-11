@@ -4,9 +4,7 @@ import (
 	"aim-oscar/config"
 	"aim-oscar/db"
 	"aim-oscar/models"
-	"aim-oscar/oscar"
 	"aim-oscar/services"
-	"bytes"
 	"context"
 	"flag"
 	"fmt"
@@ -16,7 +14,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/uptrace/bun/extra/bundebug"
@@ -96,116 +93,7 @@ func main() {
 	serviceManager.RegisterService(0x17, &services.AuthorizationRegistrationService{BOSAddress: conf.OscarConfig.BOS})
 	serviceManager.RegisterService(0x18, &services.AlertService{})
 
-	handleCloseFn := func(ctx context.Context, session *oscar.Session) {
-		session.Logger.Info("Disconnected")
-
-		user := models.UserFromContext(ctx)
-		if user != nil {
-			if err := user.SetAway(ctx, db); err != nil {
-				logger.Error("Could not set user as away", slog.String("err", err.Error()))
-			}
-
-			logger.Info("Disconnecting user", slog.String("screen_name", user.ScreenName))
-
-			onlineCh <- user
-			if session, err := oscar.SessionFromContext(ctx); err == nil {
-				session.Disconnect()
-				sessionManager.RemoveSession(user.ScreenName)
-			}
-		}
-	}
-
-	handleFn := func(ctx context.Context, flap *oscar.FLAP) context.Context {
-		session, err := oscar.SessionFromContext(ctx)
-		if err != nil {
-			// TODO
-			logger.Error("no session in context", slog.String("flap", flap.String()))
-			return ctx
-		}
-
-		if user := models.UserFromContext(ctx); user != nil {
-			if conf.AppConfig.LogLevel == slog.LevelDebug.String() {
-				logger.Debug("RECV",
-					slog.String("screen_name", user.ScreenName),
-					slog.String("ip", session.RemoteAddr().String()),
-					"flap", flap,
-				)
-			}
-			user.LastActivityAt = time.Now()
-			ctx = models.NewContextWithUser(ctx, user)
-			session.ScreenName = user.ScreenName
-			sessionManager.SetSession(user.ScreenName, session)
-		} else {
-			if conf.AppConfig.LogLevel == slog.LevelDebug.String() {
-				logger.Debug("RECV",
-					slog.String("ip", session.RemoteAddr().String()),
-					"flap", flap,
-				)
-			}
-		}
-
-		if flap.Header.Channel == 1 {
-			// Is this a hello?
-			if bytes.Equal(flap.Data.Bytes(), []byte{0, 0, 0, 1}) {
-				return ctx
-			}
-
-			user, screenName, err := services.AuthenticateFLAPCookie(ctx, db, flap)
-			if err != nil {
-				session.Logger.Error("Could not authenticate user cookie", "screen_name", screenName, slog.String("err", err.Error()))
-				return ctx
-			}
-
-			session.Logger.Info("Authenticated user", "screen_name", user.ScreenName)
-
-			session.ScreenName = user.ScreenName
-			ctx = models.NewContextWithUser(ctx, user)
-
-			// Send available services
-			servicesSnac := oscar.NewSNAC(0x1, 0x3)
-			for _, service := range services.ServiceVersions {
-				servicesSnac.Data.WriteUint16(service.Family)
-			}
-
-			servicesFlap := oscar.NewFLAP(2)
-			servicesFlap.Data.WriteBinary(servicesSnac)
-			session.Send(servicesFlap)
-
-			return ctx
-		} else if flap.Header.Channel == 2 {
-			snac := &oscar.SNAC{}
-			if err := snac.UnmarshalBinary(flap.Data.Bytes()); err != nil {
-				session.Logger.Error("could not unmarshal FLAP data", "err", err)
-				session.Disconnect()
-				handleCloseFn(ctx, session)
-				return ctx
-			}
-
-			if service, ok := serviceManager.GetService(snac.Header.Family); ok {
-				newCtx, err := service.HandleSNAC(ctx, db, snac)
-				if err != nil {
-					session.Logger.Error("error handling SNAC", slog.String("err", err.Error()))
-					session.Disconnect()
-					handleCloseFn(ctx, session)
-				}
-
-				return newCtx
-			}
-		} else if flap.Header.Channel == 4 {
-			handleCloseFn(ctx, session)
-		} else if flap.Header.Channel == 5 {
-			// User is still connected
-			// TODO: handle when user stops sending these messages?
-			return ctx
-			// session.Logger.Debug(fmt.Sprintf("%s is still connected", session.ScreenName))
-		} else {
-			session.Logger.Info("unhandled channel message", "channel", flap.Header.Channel, "flap", flap)
-		}
-
-		return ctx
-	}
-
-	handler := oscar.NewHandler(handleFn, handleCloseFn)
+	handler := NewHandler(&conf.AppConfig, db, logger, sessionManager, serviceManager, onlineCh)
 
 	var metricsServer *http.Server
 	if conf.AppConfig.Metrics.Addr != "" {

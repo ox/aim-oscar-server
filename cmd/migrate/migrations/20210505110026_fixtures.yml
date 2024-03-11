@@ -10,6 +10,11 @@
       password: password
       email: bob@example.com
       verified: false
+    - uin: 3
+      screen_name: cody
+      password: password
+      email: cody@example.com
+      verified: true
 - model: Message
   rows: []
 - model: Buddy
