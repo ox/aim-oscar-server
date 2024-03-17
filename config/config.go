@@ -24,7 +24,7 @@ type MetricsConfig struct {
 
 type OscarConfig struct {
 	Addr string `yaml:"addr" env:"OSCAR_ADDR" env-required:"true"`
-	BOS  string `yaml:"bos" env:"OSCAR_BOS" env-required:"true"`
+	BOS  string `yaml:"bos_addr" env:"OSCAR_BOS" env-required:"true"`
 }
 
 type DBConfig struct {
