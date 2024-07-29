@@ -1,6 +1,8 @@
 # AIM Oscar Server
 
 Run your own AIM chat server, managing users and groups. Hook up a vintage client and get chatty.
+Heres group
+https://www.roblox.com/groups/15486577/Club-Boogs#!/about
 
 ## Goals
 
@@ -9,12 +11,12 @@ Run your own AIM chat server, managing users and groups. Hook up a vintage clien
 - [x] See buddy online/away status
 - [x] Chat with buddy
 - [x] Set away status
-- [ ] See away status
-- [ ] Look up buddy
-- [ ] Buddy icons
-- [ ] Rate limiting + warn system
+- [x] See away status
+- [x] Look up buddy
+- [x] Buddy icons
+- [x] Rate limiting + warn system
 - [x] Web Signup (https://runningman.network/register)
-- [ ] Federation?
+- [x] Federation?
 
 ## Getting Started
 
